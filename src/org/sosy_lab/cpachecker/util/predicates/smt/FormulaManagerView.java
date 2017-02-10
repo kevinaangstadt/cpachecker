@@ -137,6 +137,7 @@ public class FormulaManagerView {
   private final FunctionFormulaManagerView functionFormulaManager;
   private @Nullable QuantifiedFormulaManagerView quantifiedFormulaManager;
   private @Nullable ArrayFormulaManagerView arrayFormulaManager;
+  private @Nullable StringFormulaManagerView stringFormulaManager;
 
   @Option(secure=true, name = "formulaDumpFilePattern", description = "where to dump interpolation and abstraction problems (format string)")
   @FileOption(FileOption.Type.OUTPUT_FILE)
@@ -192,6 +193,13 @@ public class FormulaManagerView {
     try {
       arrayFormulaManager =
           new ArrayFormulaManagerView(wrappingHandler, manager.getArrayFormulaManager());
+    } catch (UnsupportedOperationException e) {
+      // do nothing, solver does not support arrays
+    }
+
+    try {
+      stringFormulaManager =
+          new StringFormulaManagerView(wrappingHandler, manager.getStringFormulaManager());
     } catch (UnsupportedOperationException e) {
       // do nothing, solver does not support arrays
     }
@@ -364,6 +372,8 @@ public class FormulaManagerView {
     } else if (formulaType.isArrayType()) {
       FormulaType.ArrayFormulaType<?,?> arrayType = (FormulaType.ArrayFormulaType<?,?>) formulaType;
       t = arrayFormulaManager.makeArray(name, arrayType.getIndexType(), arrayType.getElementType());
+    } else if (formulaType.isStringType()) {
+      t = stringFormulaManager.makeVariable(name);
     } else {
       throw new IllegalArgumentException("Unknown formula type");
     }
@@ -890,6 +900,13 @@ public class FormulaManagerView {
       throw new UnsupportedOperationException("Solver does not support arrays");
     }
     return arrayFormulaManager;
+  }
+
+  public StringFormulaManagerView getStringFormulaManager() {
+    if (stringFormulaManager == null) {
+      throw new UnsupportedOperationException("Solver does not support strings");
+    }
+    return stringFormulaManager;
   }
 
   public <T extends Formula> FormulaType<T> getFormulaType(T pFormula) {

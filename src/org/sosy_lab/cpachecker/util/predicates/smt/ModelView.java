@@ -25,7 +25,10 @@ package org.sosy_lab.cpachecker.util.predicates.smt;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.Iterators;
-
+import java.math.BigInteger;
+import java.util.Iterator;
+import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 import org.sosy_lab.common.rationals.Rational;
 import org.sosy_lab.java_smt.api.BitvectorFormula;
 import org.sosy_lab.java_smt.api.BooleanFormula;
@@ -33,12 +36,7 @@ import org.sosy_lab.java_smt.api.Formula;
 import org.sosy_lab.java_smt.api.Model;
 import org.sosy_lab.java_smt.api.NumeralFormula.IntegerFormula;
 import org.sosy_lab.java_smt.api.NumeralFormula.RationalFormula;
-
-import java.math.BigInteger;
-import java.util.Iterator;
-import java.util.regex.Pattern;
-
-import javax.annotation.Nullable;
+import org.sosy_lab.java_smt.api.StringFormula;
 
 /**
  * Wrapping for models.
@@ -93,6 +91,12 @@ class ModelView implements Model {
   @Override
   public BigInteger evaluate(BitvectorFormula f) {
     return (BigInteger) evaluateImpl(f);
+  }
+
+  @Nullable
+  @Override
+  public String evaluate(StringFormula f) {
+    return (String) evaluateImpl(f);
   }
 
   @Override

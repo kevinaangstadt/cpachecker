@@ -74,6 +74,8 @@ import org.sosy_lab.cpachecker.util.predicates.pathformula.pointeraliasing.CToFo
 import org.sosy_lab.cpachecker.util.predicates.pathformula.pointeraliasing.FormulaEncodingWithPointerAliasingOptions;
 import org.sosy_lab.cpachecker.util.predicates.pathformula.pointeraliasing.PointerTargetSet;
 import org.sosy_lab.cpachecker.util.predicates.pathformula.pointeraliasing.TypeHandlerWithPointerAliasing;
+import org.sosy_lab.cpachecker.util.predicates.pathformula.strings.CToFormulaConverterWithArraysAndStrings;
+import org.sosy_lab.cpachecker.util.predicates.pathformula.strings.TypeHandlerWithArraysAndStrings;
 import org.sosy_lab.cpachecker.util.predicates.smt.BooleanFormulaManagerView;
 import org.sosy_lab.cpachecker.util.predicates.smt.FormulaManagerView;
 import org.sosy_lab.java_smt.api.BooleanFormula;
@@ -93,6 +95,9 @@ public class PathFormulaManagerImpl implements PathFormulaManager {
   @Option(secure=true, description = "Handle aliasing of pointers. "
       + "This adds disjunctions to the formulas, so be careful when using cartesian abstraction.")
   private boolean handlePointerAliasing = true;
+
+  @Option(secure=true, description = "Handle char arrays as strings")
+  private boolean handleStrings = true;
 
   @Option(secure=true, description = "Handle arrays using the theory of arrays.")
   private boolean handleArrays = false;
@@ -144,11 +149,21 @@ public class PathFormulaManagerImpl implements PathFormulaManager {
     shutdownNotifier = pShutdownNotifier;
 
     if (handleArrays) {
+
       final FormulaEncodingOptions options = new FormulaEncodingOptions(config);
-      CtoFormulaTypeHandler typeHandler =
-          new CtoFormulaTypeHandlerWithArrays(pLogger, pMachineModel);
-      converter = new CToFormulaConverterWithArrays(options, fmgr, pMachineModel,
-          pVariableClassification, logger, shutdownNotifier, typeHandler, pDirection);
+
+      if (handleStrings) {
+        CtoFormulaTypeHandler typeHandler =
+            new TypeHandlerWithArraysAndStrings(pLogger, pMachineModel);
+        converter = new CToFormulaConverterWithArraysAndStrings(options, fmgr, pMachineModel,
+            pVariableClassification, logger, shutdownNotifier, typeHandler, pDirection);
+      } else {
+        CtoFormulaTypeHandler typeHandler =
+            new CtoFormulaTypeHandlerWithArrays(pLogger, pMachineModel);
+        converter = new CToFormulaConverterWithArrays(options, fmgr, pMachineModel,
+            pVariableClassification, logger, shutdownNotifier, typeHandler, pDirection);
+      }
+
 
       logger.log(Level.WARNING,
           "Handling of pointer aliasing is disabled, analysis is unsound if aliased pointers exist.");
@@ -173,9 +188,16 @@ public class PathFormulaManagerImpl implements PathFormulaManager {
 
       TypeHandlerWithPointerAliasing aliasingTypeHandler = new TypeHandlerWithPointerAliasing(pLogger, pMachineModel, options);
 
-      converter = new CToFormulaConverterWithPointerAliasing(options, fmgr,
+      if (handleStrings) {
+        converter = new CToFormulaConverterWithArraysAndStrings(options, fmgr,
           pMachineModel, pVariableClassification, logger, shutdownNotifier,
           aliasingTypeHandler, pDirection);
+      } else {
+        converter = new CToFormulaConverterWithPointerAliasing(options, fmgr,
+            pMachineModel, pVariableClassification, logger, shutdownNotifier,
+            aliasingTypeHandler, pDirection);
+      }
+
 
     } else {
       final FormulaEncodingOptions options = new FormulaEncodingOptions(config);
