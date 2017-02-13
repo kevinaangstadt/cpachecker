@@ -42,7 +42,17 @@ public class TypeHandlerWithArraysAndStrings extends CtoFormulaTypeHandlerWithAr
 
   @Override
   public FormulaType<?> getFormulaTypeFromCType(CType pType) {
-    if (pType instanceof CArrayType) {
+    if (pType instanceof CSimpleType) {
+      CSimpleType simpleType = (CSimpleType) pType;
+      switch (simpleType.getType()) {
+        case INT:
+          return FormulaType.fromString(FormulaType.IntegerType.toString());
+        case CHAR:
+          return FormulaType.getStringType();
+        default:
+          break;
+      }
+    } else if (pType instanceof CArrayType) {
       final CArrayType at = (CArrayType) pType;
       if(at.getType() instanceof CSimpleType) {
         final CSimpleType et = (CSimpleType) at.getType();

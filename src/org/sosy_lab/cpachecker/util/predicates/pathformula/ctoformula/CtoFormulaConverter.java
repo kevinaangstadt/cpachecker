@@ -171,7 +171,7 @@ public class CtoFormulaConverter {
   private final Map<String, Formula> stringLitToFormula = new HashMap<>();
   private int nextStringLitIndex = 0;
 
-  final FormulaEncodingOptions options;
+  protected final FormulaEncodingOptions options;
   protected final MachineModel machineModel;
   private final Optional<VariableClassification> variableClassification;
   final CtoFormulaTypeHandler typeHandler;
@@ -220,7 +220,7 @@ public class CtoFormulaConverter {
             "__string__", typeHandler.getPointerType(), FormulaType.IntegerType);
   }
 
-  void logfOnce(Level level, CFAEdge edge, String msg, Object... args) {
+  protected void logfOnce(Level level, CFAEdge edge, String msg, Object... args) {
     if (logger.wouldBeLogged(level)) {
       logger.logfOnce(level, "%s: %s: %s",
           edge.getFileLocation(),
@@ -1267,7 +1267,7 @@ public class CtoFormulaConverter {
    * @param rhs the right-hand-side of the assignment
    * @return the assignment formula
    */
-  private BooleanFormula makeAssignment(
+  protected BooleanFormula makeAssignment(
       final CLeftHandSide lhs, CRightHandSide rhs,
       final CFAEdge edge, final String function,
       final SSAMapBuilder ssa, final PointerTargetSetBuilder pts,

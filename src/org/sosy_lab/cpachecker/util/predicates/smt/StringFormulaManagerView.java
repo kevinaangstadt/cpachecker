@@ -106,7 +106,7 @@ public class StringFormulaManagerView extends BaseManagerView implements StringF
   }
 
   @Override
-  public RegexFormula str2Regex(StringFormula pString) {
+  public RegexFormula str2Regex(String pString) {
     return manager.str2Regex(pString);
   }
 
@@ -138,5 +138,10 @@ public class StringFormulaManagerView extends BaseManagerView implements StringF
   @Override
   public BooleanFormula equal(StringFormula pString1, StringFormula pString2) {
     return manager.equal(pString1, pString2);
+  }
+
+  @Override
+  public RegexFormula regexRange(String pStart, String pEnd) {
+    return manager.regexRange(pStart, pEnd);
   }
 }

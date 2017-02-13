@@ -91,6 +91,7 @@ import org.sosy_lab.java_smt.api.NumeralFormula.RationalFormula;
 import org.sosy_lab.java_smt.api.NumeralFormulaManager;
 import org.sosy_lab.java_smt.api.QuantifiedFormulaManager.Quantifier;
 import org.sosy_lab.java_smt.api.SolverException;
+import org.sosy_lab.java_smt.api.StringFormula;
 import org.sosy_lab.java_smt.api.Tactic;
 import org.sosy_lab.java_smt.api.visitors.BooleanFormulaVisitor;
 import org.sosy_lab.java_smt.api.visitors.DefaultBooleanFormulaVisitor;
@@ -750,6 +751,8 @@ public class FormulaManagerView {
       @SuppressWarnings("rawtypes")
       ArrayFormula rhs = (ArrayFormula) pRhs;
       t = arrayFormulaManager.equivalence((ArrayFormula<?, ?>) pLhs, rhs);
+    } else if (pLhs instanceof StringFormula && pRhs instanceof StringFormula) {
+      t = stringFormulaManager.equal((StringFormula)pLhs, (StringFormula)pRhs);
     } else {
       throw new IllegalArgumentException("Not supported interface");
     }

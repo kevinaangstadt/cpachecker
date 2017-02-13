@@ -6,8 +6,11 @@
 <listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_TYPES">
 <listEntry value="1"/>
 </listAttribute>
+<mapAttribute key="org.eclipse.debug.core.environmentVariables">
+<mapEntry key="LD_LIBRARY_PATH" value="/home/kangstadt/git/z3/build:$LD_LIBRARY_PATH"/>
+</mapAttribute>
 <stringAttribute key="org.eclipse.jdt.launching.MAIN_TYPE" value="org.sosy_lab.cpachecker.cmdline.CPAMain"/>
-<stringAttribute key="org.eclipse.jdt.launching.PROGRAM_ARGUMENTS" value="-predicateAnalysis&#10;-setprop cpa.predicate.handleArrays=true&#10;-setprop solver.solver=Z3&#10;&quot;${file_prompt:the C program to verify:${workspace_loc}/${project_path}/doc/examples/example.c}&quot;"/>
+<stringAttribute key="org.eclipse.jdt.launching.PROGRAM_ARGUMENTS" value="-predicateAnalysis&#10;-setprop cpa.predicate.handleArrays=true&#10;-setprop solver.solver=Z3&#10;-setprop log.level=ALL&#10;&quot;${file_prompt:the C program to verify:${workspace_loc}/${project_path}/doc/examples/example.c}&quot;"/>
 <stringAttribute key="org.eclipse.jdt.launching.PROJECT_ATTR" value="CPAchecker"/>
-<stringAttribute key="org.eclipse.jdt.launching.VM_ARGUMENTS" value="-ea&#10;-Xmx1200m"/>
+<stringAttribute key="org.eclipse.jdt.launching.VM_ARGUMENTS" value="-ea&#10;-Xmx1200m&#10;-XX:LoopUnrollLimit=1"/>
 </launchConfiguration>
