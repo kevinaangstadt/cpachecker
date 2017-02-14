@@ -23,10 +23,12 @@
  */
 package org.sosy_lab.cpachecker.util.predicates.pathformula.strings;
 
+
 import org.sosy_lab.common.log.LogManager;
 import org.sosy_lab.cpachecker.cfa.types.MachineModel;
 import org.sosy_lab.cpachecker.cfa.types.c.CArrayType;
 import org.sosy_lab.cpachecker.cfa.types.c.CBasicType;
+import org.sosy_lab.cpachecker.cfa.types.c.CPointerType;
 import org.sosy_lab.cpachecker.cfa.types.c.CSimpleType;
 import org.sosy_lab.cpachecker.cfa.types.c.CType;
 import org.sosy_lab.cpachecker.util.predicates.pathformula.arrays.CtoFormulaTypeHandlerWithArrays;
@@ -56,6 +58,15 @@ public class TypeHandlerWithArraysAndStrings extends CtoFormulaTypeHandlerWithAr
       final CArrayType at = (CArrayType) pType;
       if(at.getType() instanceof CSimpleType) {
         final CSimpleType et = (CSimpleType) at.getType();
+        if(et.getType() == CBasicType.CHAR) {
+          //we have a string
+          return FormulaType.getStringType();
+        }
+      }
+    } else if (pType instanceof CPointerType) {
+      final CPointerType pt = (CPointerType) pType;
+      if(pt.getType() instanceof CSimpleType) {
+        final CSimpleType et = (CSimpleType) pt.getType();
         if(et.getType() == CBasicType.CHAR) {
           //we have a string
           return FormulaType.getStringType();

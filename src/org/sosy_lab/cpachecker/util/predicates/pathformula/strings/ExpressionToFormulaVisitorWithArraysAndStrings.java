@@ -32,6 +32,7 @@ import org.sosy_lab.cpachecker.cfa.model.CFAEdge;
 import org.sosy_lab.cpachecker.cfa.types.MachineModel;
 import org.sosy_lab.cpachecker.cfa.types.c.CArrayType;
 import org.sosy_lab.cpachecker.cfa.types.c.CBasicType;
+import org.sosy_lab.cpachecker.cfa.types.c.CPointerType;
 import org.sosy_lab.cpachecker.cfa.types.c.CSimpleType;
 import org.sosy_lab.cpachecker.cfa.types.c.CType;
 import org.sosy_lab.cpachecker.exceptions.UnrecognizedCCodeException;
@@ -144,30 +145,33 @@ extends ExpressionToFormulaVisitorWithArrays {
       final String arrayVarName = idExpr.getDeclaration().getQualifiedName();
       final CType arrayType = pE.getArrayExpression().getExpressionType();
 
+      final CSimpleType et;
       // we need to figure out if this is a character array
-      if (arrayType instanceof CArrayType) {
-        final CArrayType at = (CArrayType) arrayType;
-        if (at.getType() instanceof CSimpleType) {
-          final CSimpleType et = (CSimpleType) at.getType();
-          if(et.getType() == CBasicType.CHAR) {
-            // this is an array of chars (we'll treat it as a string
-            charAt = (StringFormula) ctfa.makeVariable(arrayVarName, arrayType, ssa);
-
-            // Handling of the index expression --------------------------------------
-            // Make a cast of the subscript expression to the type of the array index
-            final Formula indexExprFormula = pE.getSubscriptExpression().accept(this);
-            final Formula castedIndexExprFormula = ctfa.makeCast(
-                pE.getSubscriptExpression().getExpressionType(),
-                machine.getPointerEquivalentSimpleType(), // TODO: Is this correct?
-                indexExprFormula, null, null);
-            // we are dealing with a string
-            Formula out = smgr.charAt(charAt, (IntegerFormula) castedIndexExprFormula);
-            return out;
-          }
-        }
+      if (arrayType instanceof CArrayType && ((CArrayType) arrayType).getType() instanceof CSimpleType) {
+          CArrayType at = (CArrayType) arrayType;
+          et = (CSimpleType) at.getType();
+      } else if (arrayType instanceof CPointerType && ((CPointerType) arrayType).getType() instanceof CSimpleType) {
+        final CPointerType pt = (CPointerType) arrayType;
+        et = (CSimpleType) pt.getType();
       } else {
-        return super.visit(pE);
+        et = null;
       }
+      if(et != null && et.getType() == CBasicType.CHAR) {
+        // this is an array of chars (we'll treat it as a string
+        charAt = (StringFormula) ctfa.makeVariable(arrayVarName, arrayType, ssa);
+
+        // Handling of the index expression --------------------------------------
+        // Make a cast of the subscript expression to the type of the array index
+        final Formula indexExprFormula = pE.getSubscriptExpression().accept(this);
+        final Formula castedIndexExprFormula = ctfa.makeCast(
+            pE.getSubscriptExpression().getExpressionType(),
+            machine.getPointerEquivalentSimpleType(), // TODO: Is this correct?
+            indexExprFormula, null, null);
+        // we are dealing with a string
+        Formula out = smgr.charAt(charAt, (IntegerFormula) castedIndexExprFormula);
+        return out;
+      }
+      return super.visit(pE);
 
     } else if (pE.getArrayExpression() instanceof CArraySubscriptExpression) {
 
@@ -177,7 +181,5 @@ extends ExpressionToFormulaVisitorWithArrays {
     } else {
       throw new UnrecognizedCCodeException("CArraySubscriptExpression: Unknown type of array-expression!", pE);
     }
-    // This should never be reached
-    return null;
   }
 }

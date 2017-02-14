@@ -23,22 +23,29 @@
  */
 package org.sosy_lab.cpachecker.util.predicates.pathformula.strings;
 
+import static org.sosy_lab.cpachecker.util.predicates.pathformula.ctoformula.CtoFormulaConverter.SAFE_VAR_ARG_FUNCTIONS;
+
+import java.util.List;
 import java.util.Optional;
 import java.util.logging.Level;
 import org.sosy_lab.common.ShutdownNotifier;
 import org.sosy_lab.common.log.LogManager;
 import org.sosy_lab.cpachecker.cfa.ast.c.CArraySubscriptExpression;
 import org.sosy_lab.cpachecker.cfa.ast.c.CAssignment;
+import org.sosy_lab.cpachecker.cfa.ast.c.CExpression;
 import org.sosy_lab.cpachecker.cfa.ast.c.CIdExpression;
 import org.sosy_lab.cpachecker.cfa.ast.c.CInitializerList;
 import org.sosy_lab.cpachecker.cfa.ast.c.CInitializers;
 import org.sosy_lab.cpachecker.cfa.ast.c.CLeftHandSide;
+import org.sosy_lab.cpachecker.cfa.ast.c.CParameterDeclaration;
 import org.sosy_lab.cpachecker.cfa.ast.c.CRightHandSide;
 import org.sosy_lab.cpachecker.cfa.ast.c.CRightHandSideVisitor;
 import org.sosy_lab.cpachecker.cfa.ast.c.CStringLiteralExpression;
 import org.sosy_lab.cpachecker.cfa.ast.c.CVariableDeclaration;
 import org.sosy_lab.cpachecker.cfa.model.CFAEdge;
 import org.sosy_lab.cpachecker.cfa.model.c.CDeclarationEdge;
+import org.sosy_lab.cpachecker.cfa.model.c.CFunctionCallEdge;
+import org.sosy_lab.cpachecker.cfa.model.c.CFunctionEntryNode;
 import org.sosy_lab.cpachecker.cfa.types.MachineModel;
 import org.sosy_lab.cpachecker.cfa.types.c.CArrayType;
 import org.sosy_lab.cpachecker.cfa.types.c.CBasicType;
@@ -320,5 +327,61 @@ public class CToFormulaConverterWithArraysAndStrings extends CToFormulaConverter
     T one = fmgr.makeNumber(type, 1);
     T zero = fmgr.makeNumber(type, 0);
     return bfmgr.ifThenElse(pCond, one, zero);
+  }
+
+  @Override
+  protected BooleanFormula makeFunctionCall(
+      final CFunctionCallEdge edge, final String callerFunction,
+      final SSAMapBuilder ssa, final PointerTargetSetBuilder pts,
+      final Constraints constraints, final ErrorConditions errorConditions)
+          throws UnrecognizedCCodeException, InterruptedException {
+
+    List<CExpression> actualParams = edge.getArguments();
+
+    CFunctionEntryNode fn = edge.getSuccessor();
+    List<CParameterDeclaration> formalParams = fn.getFunctionParameters();
+
+    if (fn.getFunctionDefinition().getType().takesVarArgs()) {
+      if (formalParams.size() > actualParams.size()) {
+        throw new UnrecognizedCCodeException("Number of parameters on function call does " +
+            "not match function definition", edge);
+      }
+
+      if (!SAFE_VAR_ARG_FUNCTIONS.contains(fn.getFunctionName())) {
+        logfOnce(Level.WARNING, edge,
+            "Ignoring parameters passed as varargs to function %s",
+            fn.getFunctionName());
+      }
+
+    } else {
+      if (formalParams.size() != actualParams.size()) {
+        throw new UnrecognizedCCodeException("Number of parameters on function call does " +
+            "not match function definition", edge);
+      }
+    }
+
+    int i = 0;
+    BooleanFormula result = bfmgr.makeTrue();
+    for (CParameterDeclaration formalParam : formalParams) {
+      CExpression paramExpression = actualParams.get(i++);
+      CIdExpression lhs = new CIdExpression(paramExpression.getFileLocation(), formalParam);
+      final CIdExpression paramLHS;
+      if (options.useParameterVariables()) {
+        // make assignments: tmp_param1==arg1, tmp_param2==arg2, ...
+        CParameterDeclaration tmpParameter = new CParameterDeclaration(
+                formalParam.getFileLocation(), formalParam.getType(), formalParam.getName() + PARAM_VARIABLE_NAME);
+        tmpParameter.setQualifiedName(formalParam.getQualifiedName() + PARAM_VARIABLE_NAME);
+        paramLHS = new CIdExpression(paramExpression.getFileLocation(), tmpParameter);
+      } else {
+        paramLHS = lhs;
+      }
+
+      BooleanFormula eq = makeAssignment(paramLHS, lhs, paramExpression, edge, callerFunction, ssa, pts, constraints, errorConditions);
+      result = bfmgr.and(result, eq);
+    }
+
+    addGlobalAssignmentConstraints(edge, fn.getFunctionName(), ssa, pts, constraints, errorConditions, PARAM_VARIABLE_NAME, true);
+
+    return result;
   }
 }
