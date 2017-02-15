@@ -23,11 +23,15 @@
  */
 package org.sosy_lab.cpachecker.util.predicates.pathformula.strings;
 
+import java.util.List;
 import org.sosy_lab.cpachecker.cfa.ast.c.CArraySubscriptExpression;
 import org.sosy_lab.cpachecker.cfa.ast.c.CBinaryExpression;
 import org.sosy_lab.cpachecker.cfa.ast.c.CBinaryExpression.BinaryOperator;
 import org.sosy_lab.cpachecker.cfa.ast.c.CCharLiteralExpression;
+import org.sosy_lab.cpachecker.cfa.ast.c.CExpression;
+import org.sosy_lab.cpachecker.cfa.ast.c.CFunctionCallExpression;
 import org.sosy_lab.cpachecker.cfa.ast.c.CIdExpression;
+import org.sosy_lab.cpachecker.cfa.ast.c.CStringLiteralExpression;
 import org.sosy_lab.cpachecker.cfa.model.CFAEdge;
 import org.sosy_lab.cpachecker.cfa.types.MachineModel;
 import org.sosy_lab.cpachecker.cfa.types.c.CArrayType;
@@ -41,10 +45,12 @@ import org.sosy_lab.cpachecker.util.predicates.pathformula.arrays.ExpressionToFo
 import org.sosy_lab.cpachecker.util.predicates.pathformula.ctoformula.Constraints;
 import org.sosy_lab.cpachecker.util.predicates.smt.FormulaManagerView;
 import org.sosy_lab.cpachecker.util.predicates.smt.StringFormulaManagerView;
+import org.sosy_lab.cpachecker.util.regex.simple.SimpleRegex;
 import org.sosy_lab.java_smt.api.BooleanFormula;
 import org.sosy_lab.java_smt.api.Formula;
 import org.sosy_lab.java_smt.api.FormulaType;
 import org.sosy_lab.java_smt.api.NumeralFormula.IntegerFormula;
+import org.sosy_lab.java_smt.api.RegexFormula;
 import org.sosy_lab.java_smt.api.StringFormula;
 
 
@@ -117,6 +123,12 @@ extends ExpressionToFormulaVisitorWithArrays {
   }
 
   @Override
+  public Formula visit(CStringLiteralExpression cExp) throws UnrecognizedCCodeException {
+    // we just make this a StringFormula constant
+    return smgr.makeString(cExp.getContentString());
+  }
+
+  @Override
   public Formula visit(CArraySubscriptExpression pE) throws UnrecognizedCCodeException {
     // Examples for a CArraySubscriptExpression:
     //
@@ -181,5 +193,44 @@ extends ExpressionToFormulaVisitorWithArrays {
     } else {
       throw new UnrecognizedCCodeException("CArraySubscriptExpression: Unknown type of array-expression!", pE);
     }
+  }
+
+  @Override
+  public Formula visit(CFunctionCallExpression e) throws UnrecognizedCCodeException {
+    final CExpression functionNameExpression = e.getFunctionNameExpression();
+    final List<CExpression> parameters = e.getParameterExpressions();
+
+    // First let's handle special cases such as assumes, allocations, nondets, external models, etc.
+    final String functionName;
+    if (functionNameExpression instanceof CIdExpression) {
+      functionName = ((CIdExpression)functionNameExpression).getName();
+      if (functionName.equals("__cpa_regex")){
+        // this function takes a string and a regex string, in that order
+        if(parameters.size() == 2) {
+          // get the two parameters now
+          CExpression strExpression = parameters.get(0);
+          CExpression reExpression = parameters.get(1);
+
+          //make sure the types are right
+          if((ctfa.getFormulaTypeFromCType(strExpression.getExpressionType()).isStringType())) {
+            // the first one should be a string variable or constant
+
+            if (reExpression instanceof CStringLiteralExpression) {
+              // the second is the regex and should be a string literal
+              String re = ((CStringLiteralExpression) reExpression).getContentString();
+              RegexFormula reFormula = SimpleRegex.parseRegex(re,smgr);
+              StringFormula strFormula = (StringFormula) toFormula(strExpression);
+
+              BooleanFormula match = smgr.regexIn(strFormula, reFormula);
+
+              FormulaType<?> retT = ctfa.getFormulaTypeFromCType(e.getExpressionType());
+              return ctfa.ifTrueThenOneElseZeroArraysAndStrings(retT, match);
+            }
+          }
+        }
+      }
+    }
+
+    return super.visit(e);
   }
 }
