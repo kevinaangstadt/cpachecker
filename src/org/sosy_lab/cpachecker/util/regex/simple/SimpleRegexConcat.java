@@ -32,12 +32,19 @@ public class SimpleRegexConcat extends SimpleRegex {
   SimpleRegex re1, re2;
 
   public SimpleRegexConcat(SimpleRegexTokenizer t) throws SimpleRegexSyntaxError {
-    lparen1 = t.next(SimpleRegexToken.Type.LPAREN);
-    re1 = SimpleRegex.getRegex(t);
-    rparen1 = t.next(SimpleRegexToken.Type.RPAREN);
-    lparen2 = t.next(SimpleRegexToken.Type.LPAREN);
-    re2 = SimpleRegex.getRegex(t);
-    rparen2 = t.next(SimpleRegexToken.Type.RPAREN);
+    t.backup();
+    try {
+      lparen1 = t.next(SimpleRegexToken.Type.LPAREN);
+      re1 = SimpleRegex.getRegex(t);
+      rparen1 = t.next(SimpleRegexToken.Type.RPAREN);
+      lparen2 = t.next(SimpleRegexToken.Type.LPAREN);
+      re2 = SimpleRegex.getRegex(t);
+      rparen2 = t.next(SimpleRegexToken.Type.RPAREN);
+    } catch(SimpleRegexSyntaxError e) {
+      t.restore();
+      throw e;
+    }
+
   }
   @Override
   public RegexFormula toFormula(StringFormulaManager pSfmgr) {

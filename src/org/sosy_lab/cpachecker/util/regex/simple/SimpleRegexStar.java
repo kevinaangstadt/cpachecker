@@ -33,10 +33,16 @@ public class SimpleRegexStar extends SimpleRegex {
   SimpleRegex re;
 
   public SimpleRegexStar(SimpleRegexTokenizer t) throws SimpleRegexSyntaxError {
-    lparen = t.next(SimpleRegexToken.Type.LPAREN);
-    re = SimpleRegex.getRegex(t);
-    rparen = t.next(SimpleRegexToken.Type.RPAREN);
-    star = t.next(SimpleRegexToken.Type.STAR);
+    t.backup();
+    try {
+      lparen = t.next(SimpleRegexToken.Type.LPAREN);
+      re = SimpleRegex.getRegex(t);
+      rparen = t.next(SimpleRegexToken.Type.RPAREN);
+      star = t.next(SimpleRegexToken.Type.STAR);
+    } catch(SimpleRegexSyntaxError e) {
+      t.restore();
+      throw e;
+    }
   }
 
   @Override

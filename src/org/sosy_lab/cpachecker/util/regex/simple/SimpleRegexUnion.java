@@ -34,11 +34,17 @@ public class SimpleRegexUnion extends SimpleRegex {
 
   // Union -> ( R | R )
   public SimpleRegexUnion(SimpleRegexTokenizer t) throws SimpleRegexSyntaxError {
-    lparen = t.next(SimpleRegexToken.Type.LPAREN);
-    re1 = SimpleRegex.getRegex(t);
-    union = t.next(SimpleRegexToken.Type.UNION);
-    re2 = SimpleRegex.getRegex(t);
-    rparen = t.next(SimpleRegexToken.Type.RPAREN);
+    t.backup();
+    try {
+      lparen = t.next(SimpleRegexToken.Type.LPAREN);
+      re1 = SimpleRegex.getRegex(t);
+      union = t.next(SimpleRegexToken.Type.UNION);
+      re2 = SimpleRegex.getRegex(t);
+      rparen = t.next(SimpleRegexToken.Type.RPAREN);
+    } catch(SimpleRegexSyntaxError e) {
+      t.restore();
+      throw e;
+    }
   }
 
   @Override

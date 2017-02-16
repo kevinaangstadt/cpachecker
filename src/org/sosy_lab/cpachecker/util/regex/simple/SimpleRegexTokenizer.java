@@ -24,10 +24,12 @@
 package org.sosy_lab.cpachecker.util.regex.simple;
 
 import java.util.LinkedList;
+import java.util.Stack;
 import org.sosy_lab.cpachecker.util.regex.simple.SimpleRegexToken.Type;
 
 public class SimpleRegexTokenizer {
   private LinkedList<SimpleRegexToken> tokenQueue;
+  private Stack<LinkedList<SimpleRegexToken>> bak;
   private int col;
 
   @SuppressWarnings("unused")
@@ -50,10 +52,33 @@ public class SimpleRegexTokenizer {
         throw new SimpleRegexSyntaxError(col);
       }
     }
+    bak = new Stack<LinkedList<SimpleRegexToken>>();
+    bak.push((LinkedList<SimpleRegexToken>) tokenQueue.clone());
+
+
+  }
+
+  @SuppressWarnings("unchecked")
+  public SimpleRegexTokenizer(SimpleRegexTokenizer t) {
+    tokenQueue = (LinkedList<SimpleRegexToken>) t.tokenQueue.clone();
+    col = t.col;
   }
 
   public boolean hasNext() {
     return !tokenQueue.isEmpty();
+  }
+
+  @SuppressWarnings("unchecked")
+  public void backup() {
+    bak.push((LinkedList<SimpleRegexToken>) tokenQueue.clone());
+  }
+
+  public void restore() {
+    LinkedList<SimpleRegexToken> t = bak.pop();
+    if (bak.isEmpty()) {
+      bak.push((LinkedList<SimpleRegexToken>) t.clone());
+    }
+    tokenQueue = t;
   }
 
   /**
