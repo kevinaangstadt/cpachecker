@@ -119,6 +119,10 @@ extends ExpressionToFormulaVisitorWithArrays {
   @Override
   public Formula visit(CCharLiteralExpression cExp) throws UnrecognizedCCodeException {
     // we just make this a StringFormula constant
+    if (cExp.getCharacter() == '\0') {
+      // TODO does this make sense?
+      return smgr.makeString("");
+    }
     return smgr.makeString(String.valueOf(cExp.getCharacter()));
   }
 
@@ -226,6 +230,19 @@ extends ExpressionToFormulaVisitorWithArrays {
               FormulaType<?> retT = ctfa.getFormulaTypeFromCType(e.getExpressionType());
               return ctfa.ifTrueThenOneElseZeroArraysAndStrings(retT, match);
             }
+          }
+        }
+      } else if (functionName.equals("__cpa_strlen")) {
+        // this function takes a string and returns an int of its length
+        if (parameters.size() == 1) {
+          CExpression strExpression = parameters.get(0);
+
+          // make sure it is the right type
+          if((ctfa.getFormulaTypeFromCType(strExpression.getExpressionType()).isStringType())) {
+            // this is a string, yay!
+            StringFormula strFormula = (StringFormula) toFormula(strExpression);
+
+            return smgr.length(strFormula);
           }
         }
       }
