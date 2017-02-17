@@ -245,6 +245,24 @@ extends ExpressionToFormulaVisitorWithArrays {
             return smgr.length(strFormula);
           }
         }
+      } else if (functionName.equals("__cpa_streq")) {
+        // this function takes two strings and returns if they're equal
+        if (parameters.size() == 2) {
+          CExpression strE1 = parameters.get(0);
+          CExpression strE2 = parameters.get(1);
+
+          if ((ctfa.getFormulaTypeFromCType(strE1.getExpressionType()).isStringType()) &&
+              (ctfa.getFormulaTypeFromCType(strE2.getExpressionType()).isStringType())
+              ) {
+            StringFormula strF1 = (StringFormula) toFormula(strE1);
+            StringFormula strF2 = (StringFormula) toFormula(strE2);
+
+            BooleanFormula eq = smgr.equal(strF1, strF2);
+
+            FormulaType<?> retT = ctfa.getFormulaTypeFromCType(e.getExpressionType());
+            return ctfa.ifTrueThenOneElseZeroArraysAndStrings(retT, eq);
+          }
+        }
       }
     }
 
