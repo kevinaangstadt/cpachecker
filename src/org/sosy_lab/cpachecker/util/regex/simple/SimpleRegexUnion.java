@@ -34,7 +34,7 @@ public class SimpleRegexUnion extends SimpleRegex {
 
   // Union -> ( R | R )
   public SimpleRegexUnion(SimpleRegexTokenizer t) throws SimpleRegexSyntaxError {
-    t.backup();
+    int i = t.backup();
     try {
       lparen = t.next(SimpleRegexToken.Type.LPAREN);
       re1 = SimpleRegex.getRegex(t);
@@ -42,7 +42,9 @@ public class SimpleRegexUnion extends SimpleRegex {
       re2 = SimpleRegex.getRegex(t);
       rparen = t.next(SimpleRegexToken.Type.RPAREN);
     } catch(SimpleRegexSyntaxError e) {
-      t.restore();
+      while(t.numBackups() >= i) {
+        t.restore();
+      }
       throw e;
     }
   }

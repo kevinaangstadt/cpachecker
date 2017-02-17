@@ -49,6 +49,7 @@ public class SimpleRegexToken {
     HEXESCAPE("\\\\x[0-9][0-9]"),
     UNION("\\|"),
     STAR("\\*"),
+    PLUS("\\+"),
     EPS("eps");
 
     private String regExp;

@@ -42,7 +42,11 @@ public abstract class SimpleRegex {
           try {
             return new SimpleRegexConcat(tokenizer);
           } catch (SimpleRegexSyntaxError e4) {
-            return new SimpleRegexEps(tokenizer);
+            try {
+              return new SimpleRegexEps(tokenizer);
+            } catch (SimpleRegexSyntaxError e5) {
+              return new SimpleRegexPlus(tokenizer);
+            }
           }
         }
       }
@@ -79,9 +83,16 @@ public abstract class SimpleRegex {
               throw new SimpleRegexSyntaxError(reParse.getCol());
             }
           } catch (SimpleRegexSyntaxError e4) {
-            reParse = getRegexEps(tokenizer);
-            if (tokenizer.hasNext()) {
-              throw new SimpleRegexSyntaxError(reParse.getCol());
+            try {
+              reParse = getRegexEps(tokenizer);
+              if (tokenizer.hasNext()) {
+                throw new SimpleRegexSyntaxError(reParse.getCol());
+              }
+            } catch (SimpleRegexSyntaxError e5) {
+              reParse = getRegexPlus(tokenizer);
+              if (tokenizer.hasNext()) {
+                throw new SimpleRegexSyntaxError(reParse.getCol());
+              }
             }
           }
         }
@@ -105,6 +116,9 @@ public abstract class SimpleRegex {
   }
   private static SimpleRegex getRegexEps(SimpleRegexTokenizer tokenizer) throws SimpleRegexSyntaxError {
     return new SimpleRegexEps(tokenizer);
+  }
+  private static SimpleRegex getRegexPlus(SimpleRegexTokenizer tokenizer) throws SimpleRegexSyntaxError {
+    return new SimpleRegexPlus(tokenizer);
   }
 
   public abstract RegexFormula toFormula(StringFormulaManager sfmgr);

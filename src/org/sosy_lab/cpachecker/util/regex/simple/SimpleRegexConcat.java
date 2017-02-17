@@ -32,7 +32,7 @@ public class SimpleRegexConcat extends SimpleRegex {
   SimpleRegex re1, re2;
 
   public SimpleRegexConcat(SimpleRegexTokenizer t) throws SimpleRegexSyntaxError {
-    t.backup();
+    int i = t.backup();
     try {
       lparen1 = t.next(SimpleRegexToken.Type.LPAREN);
       re1 = SimpleRegex.getRegex(t);
@@ -41,7 +41,9 @@ public class SimpleRegexConcat extends SimpleRegex {
       re2 = SimpleRegex.getRegex(t);
       rparen2 = t.next(SimpleRegexToken.Type.RPAREN);
     } catch(SimpleRegexSyntaxError e) {
-      t.restore();
+      while(t.numBackups() >= i) {
+        t.restore();
+      }
       throw e;
     }
 

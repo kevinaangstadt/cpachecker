@@ -32,7 +32,7 @@ public class SimpleRegexTokenizer {
   private Stack<LinkedList<SimpleRegexToken>> bak;
   private int col;
 
-  @SuppressWarnings("unused")
+  @SuppressWarnings({ "unused", "unchecked" })
   public SimpleRegexTokenizer(String inputString) {
     tokenQueue = new LinkedList<SimpleRegexToken>();
     col = 1;
@@ -69,8 +69,13 @@ public class SimpleRegexTokenizer {
   }
 
   @SuppressWarnings("unchecked")
-  public void backup() {
+  public int backup() {
     bak.push((LinkedList<SimpleRegexToken>) tokenQueue.clone());
+    return bak.size();
+  }
+
+  public int numBackups() {
+    return bak.size();
   }
 
   public void restore() {
