@@ -93,6 +93,9 @@ solver.useLogger = false
 # Dump failed interpolation queries to this file in SMTLIB2 format
 solver.z3.dumpFailedInterpolationQueries = no default value
 
+# Dump all interpolation queries to this file in SMTLib2 format
+solver.z3.interpolants.dump = no default value
+
 # Activate replayable logging in Z3. The log can be given as an input to the
 # solver and replayed.
 solver.z3.log = no default value
@@ -1556,6 +1559,9 @@ cpa.predicate.handlePointerAliasing = true
 # of the char array with the contents of the string literal instead of just
 # assigning a fresh non-det address to it
 cpa.predicate.handleStringLiteralInitializers = false
+
+# Handle char arrays as strings
+cpa.predicate.handleStrings = true
 
 # Allows to ignore Concat and Extract Calls when Bitvector theory was
 # replaced with Integer or Rational.
