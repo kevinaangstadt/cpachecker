@@ -31,6 +31,7 @@ import org.sosy_lab.cpachecker.cfa.types.c.CBasicType;
 import org.sosy_lab.cpachecker.cfa.types.c.CPointerType;
 import org.sosy_lab.cpachecker.cfa.types.c.CSimpleType;
 import org.sosy_lab.cpachecker.cfa.types.c.CType;
+import org.sosy_lab.cpachecker.cfa.types.c.CTypedefType;
 import org.sosy_lab.cpachecker.util.predicates.pathformula.arrays.CtoFormulaTypeHandlerWithArrays;
 import org.sosy_lab.java_smt.api.FormulaType;
 
@@ -72,6 +73,9 @@ public class TypeHandlerWithArraysAndStrings extends CtoFormulaTypeHandlerWithAr
           return FormulaType.getStringType();
         }
       }
+    } else if (pType instanceof CTypedefType) {
+      final CTypedefType dt = (CTypedefType) pType;
+      return getFormulaTypeFromCType(dt.getRealType());
     }
     return super.getFormulaTypeFromCType(pType);
   }

@@ -144,4 +144,19 @@ public class StringFormulaManagerView extends BaseManagerView implements StringF
   public RegexFormula regexRange(String pStart, String pEnd) {
     return manager.regexRange(pStart, pEnd);
   }
+
+  @Override
+  public RegexFormula regexEmpty() {
+    return manager.regexEmpty();
+  }
+
+  @Override
+  public RegexFormula regexAll() {
+    return manager.regexAll();
+  }
+
+  @Override
+  public RegexFormula regexComp(RegexFormula pRegex1) {
+    return manager.regexComp(pRegex1);
+  }
 }

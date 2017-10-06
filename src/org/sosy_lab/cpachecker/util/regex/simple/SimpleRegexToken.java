@@ -50,9 +50,11 @@ public class SimpleRegexToken {
     UNION("\\|"),
     STAR("\\*"),
     PLUS("\\+"),
-    EPS("eps");
+    EPS("eps"),
+    NULL("NULL"),
+    NOT("!");
 
-    private String regExp;
+    private final String regExp;
     Type(String regExp) {
       this.regExp = regExp;
     }

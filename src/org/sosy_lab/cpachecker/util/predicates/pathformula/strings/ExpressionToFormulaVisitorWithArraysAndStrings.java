@@ -232,7 +232,7 @@ extends ExpressionToFormulaVisitorWithArrays {
             }
           }
         }
-      } else if (functionName.equals("__cpa_strlen")) {
+      } else if (functionName.equals("__cpa_strlen") || functionName.equals("strlen")) {
         // this function takes a string and returns an int of its length
         if (parameters.size() == 1) {
           CExpression strExpression = parameters.get(0);

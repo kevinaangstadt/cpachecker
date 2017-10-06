@@ -25,14 +25,12 @@ package org.sosy_lab.cpachecker.util.predicates.interpolation;
 
 import static com.google.common.base.Preconditions.checkState;
 
-import java.util.List;
-import java.util.Map;
-
-import org.sosy_lab.java_smt.api.BooleanFormula;
-import org.sosy_lab.java_smt.api.Model.ValueAssignment;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import java.util.List;
+import java.util.Map;
+import org.sosy_lab.java_smt.api.BooleanFormula;
+import org.sosy_lab.java_smt.api.Model.ValueAssignment;
 
 
 /**
@@ -71,6 +69,15 @@ public class CounterexampleTraceInfo {
     public static CounterexampleTraceInfo infeasibleNoItp() {
       return new CounterexampleTraceInfo(true,
           null,
+          null,
+          ImmutableList.<BooleanFormula>of(),
+          ImmutableMap.<Integer, Boolean>of()
+          );
+    }
+
+    public static CounterexampleTraceInfo infeasibleCoreNoItp(List<BooleanFormula> core, int dup){
+      return new CounterexampleTraceInfo(true,
+          ImmutableList.copyOf(core),
           null,
           ImmutableList.<BooleanFormula>of(),
           ImmutableMap.<Integer, Boolean>of()

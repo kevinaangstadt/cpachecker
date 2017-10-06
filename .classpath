@@ -44,19 +44,18 @@
 	<classpathentry kind="lib" path="lib/meconsole010.jar"/>
 	<classpathentry kind="lib" path="lib/java/runtime/princess-assertionless.jar" sourcepath="lib/java-contrib/princess-sources-assertionless.zip"/>
 	<classpathentry kind="lib" path="lib/java/runtime/scala-library.jar"/>
-	<classpathentry kind="lib" path="lib/java/runtime/javasmt.jar" sourcepath="lib/java-contrib/javasmt-sources.jar"/>
 	<classpathentry kind="src" path=".apt-generated">
 		<attributes>
 			<attribute name="optional" value="true"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="lib" path="/home/kaa2nx/git/z3/build/com.microsoft.z3.jar">
+	<classpathentry kind="lib" path="/home/kaa2nx/git/z3/build/com.microsoft.z3.jar" sourcepath="/home/kaa2nx/git/z3/src/api/java">
 		<attributes>
 			<attribute name="org.eclipse.jdt.launching.CLASSPATH_ATTR_LIBRARY_PATH_ENTRY" value="/home/kaa2nx/git/z3/build"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="lib" path="/JavaSMT/${ivy.module}-1.0.1-67-g1e4e172.jar" sourcepath="/JavaSMT/${ivy.module}-1.0.1-67-g1e4e172-sources.jar"/>
 	<classpathentry kind="lib" path="lib/jna.jar"/>
 	<classpathentry kind="lib" path="lib/llvm-j.jar"/>
+	<classpathentry kind="lib" path="/JavaSMT/${ivy.module}-1.0.1-67-g1e4e172-dirty.jar" sourcepath="/JavaSMT/src"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

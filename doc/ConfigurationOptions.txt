@@ -93,6 +93,9 @@ solver.useLogger = false
 # Dump failed interpolation queries to this file in SMTLIB2 format
 solver.z3.dumpFailedInterpolationQueries = no default value
 
+# Dump all Unsat checks
+solver.z3.dumpUnsatQueries = no default value
+
 # Dump all interpolation queries to this file in SMTLib2 format
 solver.z3.interpolants.dump = no default value
 

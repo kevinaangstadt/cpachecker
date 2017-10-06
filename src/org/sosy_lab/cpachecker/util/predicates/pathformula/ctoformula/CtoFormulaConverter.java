@@ -647,6 +647,10 @@ public class CtoFormulaConverter {
       return new CBitFieldType(normalizedInnerType, type.getBitFieldSize());
     }
     if (pType instanceof CPointerType) {
+      CType bt = ((CPointerType)pType).getType();
+      if(bt instanceof CSimpleType && ((CSimpleType)bt).getType() == CBasicType.CHAR) {
+        return pType;
+      }
       return machineModel.getPointerEquivalentSimpleType();
     }
     if (pType instanceof CEnumType

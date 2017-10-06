@@ -406,7 +406,7 @@ public final class InterpolationManager {
   private CounterexampleTraceInfo solveCounterexample(
       List<BooleanFormula> f, Set<ARGState> elementsOnPath)
       throws CPATransferException, SolverException, InterruptedException {
-    try (ProverEnvironment prover = solver.newProverEnvironment(ProverOptions.GENERATE_MODELS)) {
+    try (ProverEnvironment prover = solver.newProverEnvironment(ProverOptions.GENERATE_MODELS)) {//, ProverOptions.GENERATE_UNSAT_CORE)){ //, ProverOptions.GENERATE_UNSAT_CORE_OVER_ASSUMPTIONS)) {
       for (BooleanFormula block : f) {
         prover.push(block);
       }
@@ -422,6 +422,7 @@ public final class InterpolationManager {
               f, ImmutableList.<ValueAssignment>of(), ImmutableMap.<Integer, Boolean>of());
         }
       } else {
+        //return CounterexampleTraceInfo.infeasibleCoreNoItp(prover.getUnsatCore(), f.size());
         return CounterexampleTraceInfo.infeasibleNoItp();
       }
     }
