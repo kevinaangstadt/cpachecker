@@ -29,18 +29,33 @@ import org.sosy_lab.common.configuration.InvalidConfigurationException;
 import org.sosy_lab.common.configuration.Option;
 import org.sosy_lab.common.configuration.Options;
 
-/** A container for all PDR related options. */
+/** A container for all PDR-related options. */
 @Options(prefix = "pdr")
 public class PDROptions {
 
   @Option(
     secure = true,
     description =
-        "Simplifies the global transition relation by keeping only"
-            + " those transitions whose corresponding blocks are backwards reachable from the target"
-            + " locations."
+        "The maximum number of literals that should be dropped during the inductive generalization"
+            + " of states."
   )
-  private boolean removeRedundantTransitions = false;
+  private int maxLiteralsToDropDuringGeneralization = 5;
+
+  @Option(
+    secure = true,
+    description =
+        "The maximum number of attempts at dropping literals during the inductive generalization of"
+            + " states."
+  )
+  private int maxAttemptsToDropLiteralsDuringGeneralization = 10;
+
+  @Option(
+    secure = true,
+    description =
+        "Try to shorten the lifted state further by checking if the lifting query is still valid "
+            + "after dropping each literal in turn."
+  )
+  private boolean dropLiteralsBeyondUnsatCoreAfterLifting = false;
 
   /**
    * Creates a new instance and injects all relevant options from the provided configuration.
@@ -53,12 +68,32 @@ public class PDROptions {
   }
 
   /**
-   * Returns whether the configuration file set the option to remove all redundant block transitions
-   * from the global transition relation.
+   * Returns the maximum number of attempts at dropping literals during generalization as specified
+   * by the configuration file.
    *
-   * @return True, if redundant transitions are to be removed. False, if not.
+   * @return The maximum number of attempts to drop literals.
    */
-  public boolean shouldRemoveRedundantTransitions() {
-    return removeRedundantTransitions;
+  public int maxAttemptsAtDroppingLiterals() {
+    return maxAttemptsToDropLiteralsDuringGeneralization;
   }
+
+  /**
+   * Returns the maximum number of literals that should be dropped during generalization as
+   * specified by the configuration file.
+   *
+   * @return The maximum number of literals to be dropped.
+   */
+  public int maxLiteralsToDrop() {
+    return maxLiteralsToDropDuringGeneralization;
+  }
+
+  /**
+   * Returns whether the lifted state should be further reduced by trying to manually drop literals.
+   *
+   * @return True if literals should be manually dropped after lifting, false otherwise.
+   */
+  public boolean shouldDropLiteralsAfterLiftingWithUnsatCore() {
+    return dropLiteralsBeyondUnsatCoreAfterLifting;
+  }
+
 }

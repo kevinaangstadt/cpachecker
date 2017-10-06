@@ -51,7 +51,7 @@ import org.sosy_lab.common.configuration.FileOption;
 import org.sosy_lab.common.configuration.InvalidConfigurationException;
 import org.sosy_lab.common.configuration.Option;
 import org.sosy_lab.common.configuration.Options;
-import org.sosy_lab.common.io.MoreFiles;
+import org.sosy_lab.common.io.IO;
 import org.sosy_lab.common.log.LogManager;
 import org.sosy_lab.common.time.Timer;
 import org.sosy_lab.cpachecker.cfa.ast.ADeclaration;
@@ -77,7 +77,7 @@ import org.sosy_lab.cpachecker.cfa.model.CFATerminationNode;
 import org.sosy_lab.cpachecker.cfa.model.FunctionEntryNode;
 import org.sosy_lab.cpachecker.cfa.model.c.CDeclarationEdge;
 import org.sosy_lab.cpachecker.cfa.model.java.JDeclarationEdge;
-import org.sosy_lab.cpachecker.cfa.parser.eclipse.EclipseParsers;
+import org.sosy_lab.cpachecker.cfa.parser.Parsers;
 import org.sosy_lab.cpachecker.cfa.postprocessing.function.CFADeclarationMover;
 import org.sosy_lab.cpachecker.cfa.postprocessing.function.CFASimplifier;
 import org.sosy_lab.cpachecker.cfa.postprocessing.function.CFunctionPointerResolver;
@@ -148,6 +148,10 @@ public class CFACreator {
   @Option(secure=true, name="analysis.useGlobalVars",
       description="add declarations for global variables before entry function")
   private boolean useGlobalVars = true;
+
+  @Option(secure=true, name="analysis.useLoopStructure",
+      description="add loop-structure information to CFA.")
+  private boolean useLoopStructure = true;
 
   @Option(secure=true, name="cfa.export",
       description="export CFA as .dot file")
@@ -220,7 +224,7 @@ public class CFACreator {
       description="This option enables the computation of a classification of CFA nodes.")
 private boolean classifyNodes = false;
 
-  @Option(secure=true, description="C or Java?")
+  @Option(secure=true, description="C, Java, or LLVM IR?")
   private Language language = Language.C;
 
   private final LogManager logger;
@@ -276,7 +280,7 @@ private boolean classifyNodes = false;
 
     switch (language) {
     case JAVA:
-      parser = EclipseParsers.getJavaParser(logger, config);
+      parser = Parsers.getJavaParser(logger, config);
       break;
     case C:
       CParser outerParser =
@@ -294,6 +298,11 @@ private boolean classifyNodes = false;
       parser = outerParser;
 
       break;
+    case LLVM:
+      parser = Parsers.getLlvmParser(logger, machineModel);
+      language = Language.C; // After parsing we will have a CFA representing C code
+      break;
+
     default:
       throw new AssertionError();
     }
@@ -378,7 +387,14 @@ private boolean classifyNodes = false;
 
     assert mainFunction != null;
 
-    MutableCFA cfa = new MutableCFA(machineModel, pParseResult.getFunctions(), pParseResult.getCFANodes(), mainFunction, language);
+    MutableCFA cfa =
+        new MutableCFA(
+            machineModel,
+            pParseResult.getFunctions(),
+            pParseResult.getCFANodes(),
+            mainFunction,
+            pParseResult.getFileNames(),
+            language);
 
     stats.checkTime.start();
 
@@ -410,7 +426,9 @@ private boolean classifyNodes = false;
 
     // get loop information
     // (needs post-order information)
-    addLoopStructure(cfa);
+    if (useLoopStructure) {
+      addLoopStructure(cfa);
+    }
 
     // FOURTH, insert call and return edges and build the supergraph
     if (interprocedural) {
@@ -707,7 +725,7 @@ private boolean classifyNodes = false;
     Path file = Paths.get(fileDenotation);
 
     try {
-      MoreFiles.checkReadableFile(file);
+      IO.checkReadableFile(file);
     } catch (FileNotFoundException e) {
       throw new InvalidConfigurationException(e.getMessage());
     }
@@ -911,7 +929,7 @@ v.addInitializer(initializer);
 
     // write CFA to file
     if (exportCfa && exportCfaFile != null) {
-      try (Writer w = MoreFiles.openOutputFile(exportCfaFile, Charset.defaultCharset())) {
+      try (Writer w = IO.openOutputFile(exportCfaFile, Charset.defaultCharset())) {
         DOTBuilder.generateDOT(w, cfa);
       } catch (IOException e) {
         logger.logUserException(Level.WARNING, e,
@@ -933,7 +951,7 @@ v.addInitializer(initializer);
     }
 
     if (exportFunctionCalls && exportFunctionCallsFile != null) {
-      try (Writer w = MoreFiles.openOutputFile(exportFunctionCallsFile, Charset.defaultCharset())) {
+      try (Writer w = IO.openOutputFile(exportFunctionCallsFile, Charset.defaultCharset())) {
         FunctionCallDumper.dump(w, cfa);
       } catch (IOException e) {
         logger.logUserException(Level.WARNING, e,

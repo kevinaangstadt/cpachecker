@@ -30,7 +30,6 @@ import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.SetMultimap;
@@ -53,25 +52,22 @@ import org.sosy_lab.common.configuration.FileOption;
 import org.sosy_lab.common.configuration.InvalidConfigurationException;
 import org.sosy_lab.common.configuration.Option;
 import org.sosy_lab.common.configuration.Options;
-import org.sosy_lab.common.io.MoreFiles;
+import org.sosy_lab.common.io.IO;
 import org.sosy_lab.common.log.LogManager;
 import org.sosy_lab.cpachecker.cfa.CFA;
 import org.sosy_lab.cpachecker.core.CPAcheckerResult;
 import org.sosy_lab.cpachecker.core.CPAcheckerResult.Result;
 import org.sosy_lab.cpachecker.core.Specification;
 import org.sosy_lab.cpachecker.core.counterexample.AssumptionToEdgeAllocator;
-import org.sosy_lab.cpachecker.core.counterexample.CFAPathWithAssumptions;
-import org.sosy_lab.cpachecker.core.counterexample.ConcreteStatePath;
 import org.sosy_lab.cpachecker.core.counterexample.CounterexampleInfo;
 import org.sosy_lab.cpachecker.core.interfaces.AbstractState;
 import org.sosy_lab.cpachecker.core.interfaces.ConfigurableProgramAnalysis;
-import org.sosy_lab.cpachecker.core.interfaces.ConfigurableProgramAnalysisWithConcreteCex;
 import org.sosy_lab.cpachecker.core.interfaces.Statistics;
 import org.sosy_lab.cpachecker.core.reachedset.UnmodifiableReachedSet;
 import org.sosy_lab.cpachecker.cpa.arg.counterexamples.CEXExporter;
 import org.sosy_lab.cpachecker.cpa.partitioning.PartitioningCPA.PartitionState;
+import org.sosy_lab.cpachecker.exceptions.CPAException;
 import org.sosy_lab.cpachecker.util.AbstractStates;
-import org.sosy_lab.cpachecker.util.CPAs;
 import org.sosy_lab.cpachecker.util.Pair;
 import org.sosy_lab.cpachecker.util.cwriter.ARGToCTranslator;
 
@@ -163,7 +159,7 @@ public class ARGStatistics implements Statistics {
       // We do this lazily so that the file is written only if there are refinements.
       try {
         refinementGraphUnderlyingWriter =
-            MoreFiles.openOutputFile(refinementGraphFile, Charset.defaultCharset());
+            IO.openOutputFile(refinementGraphFile, Charset.defaultCharset());
         refinementGraphWriter = new ARGToDotWriter(refinementGraphUnderlyingWriter);
       } catch (IOException e) {
         if (refinementGraphUnderlyingWriter != null) {
@@ -212,10 +208,10 @@ public class ARGStatistics implements Statistics {
     }
 
     if (translateARG) {
-      try (Writer writer = MoreFiles.openOutputFile(argCFile, Charset.defaultCharset())) {
+      try (Writer writer = IO.openOutputFile(argCFile, Charset.defaultCharset())) {
         writer.write(
             argToCExporter.translateARG((ARGState) pReached.getFirstState()));
-      } catch (IOException e) {
+      } catch (IOException | CPAException e) {
         logger.logUserException(Level.WARNING, e, "Could not write C translation of ARG to file");
       }
     }
@@ -276,7 +272,7 @@ public class ARGStatistics implements Statistics {
 
     if (proofWitness != null && pResult == Result.TRUE) {
       try (Writer w =
-          MoreFiles.openOutputFile(
+          IO.openOutputFile(
               adjustPathNameForPartitioning(rootState, proofWitness), StandardCharsets.UTF_8)) {
         argPathExporter.writeProofWitness(w, rootState,
             Predicates.alwaysTrue(),
@@ -288,7 +284,7 @@ public class ARGStatistics implements Statistics {
 
     if (argFile != null) {
       try (Writer w =
-          MoreFiles.openOutputFile(
+          IO.openOutputFile(
               adjustPathNameForPartitioning(rootState, argFile), Charset.defaultCharset())) {
         ARGToDotWriter.write(
             w, rootState, ARGState::getChildren, Predicates.alwaysTrue(), isTargetPathEdge);
@@ -299,7 +295,7 @@ public class ARGStatistics implements Statistics {
 
     if (simplifiedArgFile != null) {
       try (Writer w =
-          MoreFiles.openOutputFile(
+          IO.openOutputFile(
               adjustPathNameForPartitioning(rootState, simplifiedArgFile),
               Charset.defaultCharset())) {
         ARGToDotWriter.write(w, rootState,
@@ -332,58 +328,15 @@ public class ARGStatistics implements Statistics {
 
     for (AbstractState targetState : from(pReached).filter(IS_TARGET_STATE)) {
       ARGState s = (ARGState)targetState;
-      CounterexampleInfo cex = s.getCounterexampleInformation().orElse(null);
-      if (cex == null) {
-        ARGPath path = ARGUtils.getOnePathTo(s);
-        if (path.getFullPath().isEmpty()) {
-          // path is invalid,
-          // this might be a partial path in BAM, from an intermediate TargetState to root of its ReachedSet.
-          // TODO this check does not avoid dummy-paths in BAM, that might exist in main-reachedSet.
-        } else {
-
-          CFAPathWithAssumptions assignments = createAssignmentsForPath(path);
-          // we use the imprecise version of the CounterexampleInfo, due to the possible
-          // merges which are done in the used CPAs, but if we can compute a path with assignments,
-          // it is probably precise
-          if (!assignments.isEmpty()) {
-            cex = CounterexampleInfo.feasiblePrecise(path, assignments);
-          } else {
-            cex = CounterexampleInfo.feasibleImprecise(path);
-          }
-        }
-      }
+      CounterexampleInfo cex =
+          ARGUtils.tryGetOrCreateCounterexampleInformation(s, cpa, assumptionToEdgeAllocator)
+              .orElse(null);
       if (cex != null) {
         counterexamples.put(s, cex);
       }
     }
 
     return counterexamples.build();
-  }
-
-  private CFAPathWithAssumptions createAssignmentsForPath(ARGPath pPath) {
-
-    FluentIterable<ConfigurableProgramAnalysisWithConcreteCex> cpas =
-        CPAs.asIterable(cpa).filter(ConfigurableProgramAnalysisWithConcreteCex.class);
-
-    CFAPathWithAssumptions result = null;
-
-    // TODO Merge different paths
-    for (ConfigurableProgramAnalysisWithConcreteCex wrappedCpa : cpas) {
-      ConcreteStatePath path = wrappedCpa.createConcreteStatePath(pPath);
-      CFAPathWithAssumptions cexPath = CFAPathWithAssumptions.of(path, assumptionToEdgeAllocator);
-
-      if (result != null) {
-        result = result.mergePaths(cexPath);
-      } else {
-        result = cexPath;
-      }
-    }
-
-    if (result == null) {
-      return CFAPathWithAssumptions.empty();
-    } else {
-      return result;
-    }
   }
 
   public void exportCounterexampleOnTheFly(

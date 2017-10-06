@@ -24,6 +24,7 @@
 package org.sosy_lab.cpachecker.core.counterexample;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.FluentIterable;
@@ -36,10 +37,10 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.logging.Level;
 import javax.annotation.Nullable;
@@ -791,53 +792,13 @@ public class AssumptionToEdgeAllocator {
       return null;
     }
 
-    private BigDecimal getFieldOffset(CFieldReference fieldReference) {
+    private @Nullable BigInteger getFieldOffsetInBits(CFieldReference fieldReference) {
       CType fieldOwnerType = fieldReference.getFieldOwner().getExpressionType().getCanonicalType();
-      return getFieldOffset(fieldOwnerType, fieldReference.getFieldName());
-    }
-
-    private BigDecimal getFieldOffset(CType ownerType, String fieldName) {
-
-      if (ownerType instanceof CElaboratedType) {
-
-        CType realType = ((CElaboratedType) ownerType).getRealType();
-
-        if (realType == null) {
-          return null;
-        }
-
-        return getFieldOffset(realType.getCanonicalType(), fieldName);
-      } else if (ownerType instanceof CCompositeType) {
-        return getFieldOffset((CCompositeType) ownerType, fieldName);
-      } else if (ownerType instanceof CPointerType) {
-
-        /* We do not explicitly transform x->b,
-        so when we try to get the field b the ownerType of x
-        is a pointer type.*/
-
-        CType type = ((CPointerType) ownerType).getType().getCanonicalType();
-
-        return getFieldOffset(type, fieldName);
-      }
-
-      throw new AssertionError();
-    }
-
-    private BigDecimal getFieldOffset(CCompositeType ownerType, String fieldName) {
-
-      List<CCompositeTypeMemberDeclaration> membersOfType = ownerType.getMembers();
-
-      int offset = 0;
-
-      for (CCompositeTypeMemberDeclaration typeMember : membersOfType) {
-        String memberName = typeMember.getName();
-        if (memberName.equals(fieldName)) {
-          return BigDecimal.valueOf(offset);
-        }
-
-        if (!(ownerType.getKind() == ComplexTypeKind.UNION)) {
-          offset = offset + machineModel.getSizeof(typeMember.getType().getCanonicalType());
-        }
+      OptionalInt result =
+          AssumptionToEdgeAllocator.getFieldOffsetInBits(
+              fieldOwnerType, fieldReference.getFieldName(), machineModel);
+      if (result.isPresent()) {
+        return BigInteger.valueOf(result.getAsInt());
       }
       return null;
     }
@@ -993,7 +954,10 @@ public class AssumptionToEdgeAllocator {
           subscriptValue = new BigDecimal(subscriptValueNumber.toString());
         }
 
-        BigDecimal typeSize = BigDecimal.valueOf(machineModel.getSizeof(pIastArraySubscriptExpression.getExpressionType().getCanonicalType()));
+        BigDecimal typeSize =
+            BigDecimal.valueOf(
+                machineModel.getBitSizeof(
+                    pIastArraySubscriptExpression.getExpressionType().getCanonicalType()));
 
         BigDecimal subscriptOffset = subscriptValue.multiply(typeSize);
 
@@ -1005,20 +969,20 @@ public class AssumptionToEdgeAllocator {
 
         CExpression fieldOwner = pIastFieldReference.getFieldOwner();
 
-      //This works because arrays and structs evaluate to their addresses.
+        //This works because arrays and structs evaluate to their addresses.
         Address fieldOwnerAddress = evaluateNumericalValueAsAddress(fieldOwner);
 
         if (fieldOwnerAddress.isUnknown() || fieldOwnerAddress.isSymbolic()) {
           return lookupReferenceAddress(pIastFieldReference);
         }
 
-        BigDecimal fieldOffset = getFieldOffset(pIastFieldReference);
+        BigInteger fieldOffset = getFieldOffsetInBits(pIastFieldReference);
 
         if (fieldOffset == null) {
           return lookupReferenceAddress(pIastFieldReference);
         }
 
-        Address address = fieldOwnerAddress.addOffset(fieldOffset);
+        Address address = fieldOwnerAddress.addOffset(new BigDecimal(fieldOffset));
 
         if (address.isUnknown()) {
           return lookupReferenceAddress(pIastFieldReference);
@@ -1185,7 +1149,7 @@ public class AssumptionToEdgeAllocator {
 
           BigDecimal offsetValue = new BigDecimal(offsetValueNumber.toString());
 
-          BigDecimal typeSize = BigDecimal.valueOf(getSizeof(elementType));
+              BigDecimal typeSize = BigDecimal.valueOf(getBitSizeof(elementType));
 
           BigDecimal pointerOffsetValue = offsetValue.multiply(typeSize);
 
@@ -1622,17 +1586,17 @@ public class AssumptionToEdgeAllocator {
       }
 
       @Override
-      public Void visitDefault(CType pT) {
+      public @Nullable Void visitDefault(CType pT) {
         return null;
       }
 
       @Override
-      public Void visit(CTypedefType pT) {
+      public @Nullable Void visit(CTypedefType pT) {
         return pT.getRealType().accept(this);
       }
 
       @Override
-      public Void visit(CElaboratedType pT) {
+      public @Nullable Void visit(CElaboratedType pT) {
 
         CType realType = pT.getRealType();
 
@@ -1644,17 +1608,17 @@ public class AssumptionToEdgeAllocator {
       }
 
       @Override
-      public Void visit(CEnumType pT) {
+      public @Nullable Void visit(CEnumType pT) {
         return null;
       }
 
       @Override
-      public Void visit(CBitFieldType pCBitFieldType) throws RuntimeException {
+      public @Nullable Void visit(CBitFieldType pCBitFieldType) throws RuntimeException {
         return pCBitFieldType.getType().accept(this);
       }
 
       @Override
-      public Void visit(CCompositeType compType) {
+      public @Nullable Void visit(CCompositeType compType) {
 
         if (compType.getKind() == ComplexTypeKind.ENUM) {
           // TODO Enum
@@ -1677,17 +1641,13 @@ public class AssumptionToEdgeAllocator {
           return;
         }
 
-        Iterator<CCompositeTypeMemberDeclaration> memberIt = pCompType.getMembers().iterator();
-        while (memberIt.hasNext()) {
-          final CCompositeTypeMemberDeclaration memberType = memberIt.next();
-          handleMemberField(memberType, fieldAddress);
+        Map<CCompositeTypeMemberDeclaration, BigInteger> offsets =
+            machineModel.getAllFieldOffsetsInBits(pCompType);
 
-          if (memberIt.hasNext()) {
-            int offsetToNextField = machineModel.getSizeof(memberType.getType());
-            fieldAddress = fieldAddress.addOffset(BigInteger.valueOf(offsetToNextField));
-          } else {
-            fieldAddress = null;
-          }
+        for (Map.Entry<CCompositeTypeMemberDeclaration, BigInteger> memberOffset :
+            offsets.entrySet()) {
+          CCompositeTypeMemberDeclaration memberType = memberOffset.getKey();
+          handleMemberField(memberType, address.addOffset(memberOffset.getValue()));
         }
       }
 
@@ -1761,7 +1721,7 @@ public class AssumptionToEdgeAllocator {
       }
 
       @Override
-      public Void visit(CArrayType arrayType) {
+      public @Nullable Void visit(CArrayType arrayType) {
 
         CType expectedType = arrayType.getType().getCanonicalType();
 
@@ -1783,12 +1743,13 @@ public class AssumptionToEdgeAllocator {
           return false;
         }
 
-        int typeSize = machineModel.getSizeof(pExpectedType);
+        int typeSize = machineModel.getBitSizeof(pExpectedType);
         int subscriptOffset = pSubscript * typeSize;
 
         // Check if we are already out of array bound, if we have an array length.
         // FIXME Imprecise due to imprecise getSizeOf method
-        if (!pArrayType.isIncomplete() && machineModel.getSizeof(pArrayType) <= subscriptOffset) {
+        if (!pArrayType.isIncomplete()
+            && machineModel.getBitSizeof(pArrayType) <= subscriptOffset) {
           return false;
         }
         if (pArrayType.getLength() == null) {
@@ -1857,7 +1818,7 @@ public class AssumptionToEdgeAllocator {
       }
 
       @Override
-      public Void visit(CPointerType pointerType) {
+      public @Nullable Void visit(CPointerType pointerType) {
 
         CType expectedType = pointerType.getType().getCanonicalType();
 
@@ -1941,12 +1902,12 @@ public class AssumptionToEdgeAllocator {
       }
 
       @Override
-      public Void visitDefault(CType pT) {
+      public @Nullable Void visitDefault(CType pT) {
         return null;
       }
 
       @Override
-      public Void visit(CElaboratedType type) {
+      public @Nullable Void visit(CElaboratedType type) {
 
         CType realType = type.getRealType();
 
@@ -1958,17 +1919,17 @@ public class AssumptionToEdgeAllocator {
       }
 
       @Override
-      public Void visit(CTypedefType pType) {
+      public @Nullable Void visit(CTypedefType pType) {
         return pType.getRealType().accept(this);
       }
 
       @Override
-      public Void visit(CBitFieldType pCBitFieldType) throws RuntimeException {
+      public @Nullable Void visit(CBitFieldType pCBitFieldType) throws RuntimeException {
         return pCBitFieldType.getType().accept(this);
       }
 
       @Override
-      public Void visit(CCompositeType compType) {
+      public @Nullable Void visit(CCompositeType compType) {
 
         if (compType.getKind() == ComplexTypeKind.ENUM) {
           return null;
@@ -2212,6 +2173,34 @@ public class AssumptionToEdgeAllocator {
     public CLeftHandSide getSubExpression() {
       return subExpression;
     }
+  }
+
+  private static OptionalInt getFieldOffsetInBits(
+      CType ownerType, String fieldName, MachineModel pMachineModel) {
+
+    if (ownerType instanceof CElaboratedType) {
+
+      CType realType = ((CElaboratedType) ownerType).getRealType();
+
+      if (realType == null) {
+        return null;
+      }
+
+      return getFieldOffsetInBits(realType.getCanonicalType(), fieldName, pMachineModel);
+    } else if (ownerType instanceof CCompositeType) {
+      return pMachineModel.getFieldOffsetInBits((CCompositeType) ownerType, fieldName);
+    } else if (ownerType instanceof CPointerType) {
+
+      /* We do not explicitly transform x->b,
+      so when we try to get the field b the ownerType of x
+      is a pointer type.*/
+
+      CType type = ((CPointerType) ownerType).getType().getCanonicalType();
+
+      return getFieldOffsetInBits(type, fieldName, pMachineModel);
+    }
+
+    throw new AssertionError();
   }
 
 }

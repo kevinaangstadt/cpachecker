@@ -38,20 +38,20 @@ import java.io.PrintStream;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.logging.Level;
+import javax.annotation.Nullable;
 import org.sosy_lab.common.ShutdownManager;
 import org.sosy_lab.common.configuration.Configuration;
 import org.sosy_lab.common.configuration.FileOption;
 import org.sosy_lab.common.configuration.InvalidConfigurationException;
 import org.sosy_lab.common.configuration.Option;
 import org.sosy_lab.common.configuration.Options;
-import org.sosy_lab.common.io.MoreFiles;
+import org.sosy_lab.common.io.IO;
 import org.sosy_lab.common.log.LogManager;
 import org.sosy_lab.cpachecker.cfa.CFA;
 import org.sosy_lab.cpachecker.cfa.model.AssumeEdge;
@@ -111,7 +111,8 @@ public class BMCAlgorithm extends AbstractBMCAlgorithm implements Algorithm {
 
   @Option(secure=true, description="Export auxiliary invariants used for induction.")
   @FileOption(FileOption.Type.OUTPUT_FILE)
-  private Path invariantsExport = Paths.get("invariants.graphml");
+  @Nullable
+  private Path invariantsExport = null;
 
   private final ConfigurableProgramAnalysis cpa;
 
@@ -325,7 +326,7 @@ public class BMCAlgorithm extends AbstractBMCAlgorithm implements Algorithm {
               ImmutableList.<BooleanFormula>of(cexFormula), model, branchingInformation);
       CounterexampleInfo counterexample =
           pathChecker.createCounterexample(targetPath, cexInfo, shouldCheckBranching);
-      counterexample.getTargetPath().getLastState().addCounterexampleInformation(counterexample);
+      counterexample.getTargetState().addCounterexampleInformation(counterexample);
 
     } finally {
       stats.errorPathCreation.stop();
@@ -388,7 +389,7 @@ public class BMCAlgorithm extends AbstractBMCAlgorithm implements Algorithm {
               }
               final ExpressionTreeSupplier expSup = tmpExpressionTreeSupplier;
 
-              try (Writer w = MoreFiles.openOutputFile(invariantsExport, StandardCharsets.UTF_8)) {
+              try (Writer w = IO.openOutputFile(invariantsExport, StandardCharsets.UTF_8)) {
                 argPathExporter.writeProofWitness(
                     w,
                     rootState,

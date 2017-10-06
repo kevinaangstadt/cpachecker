@@ -28,6 +28,7 @@
 	<classpathentry kind="lib" path="lib/java/runtime/ultimate-smt-solver-bridge.jar" sourcepath="lib/java-contrib/ultimate-smt-solver-bridge-sources.jar"/>
 	<classpathentry kind="lib" path="lib/java/runtime/ultimate-core.jar" sourcepath="lib/java-contrib/ultimate-core-sources.jar"/>
 	<classpathentry kind="lib" path="lib/java/runtime/smtinterpol.jar" sourcepath="lib/java-contrib/smtinterpol-sources.jar"/>
+	<classpathentry kind="lib" path="lib/java/test/truth-java8-extension.jar" sourcepath="lib/java-contrib/truth-java8-extension-sources.jar"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.8"/>
 	<classpathentry kind="lib" path="lib/java/test/objenesis.jar"/>
 	<classpathentry kind="lib" path="lib/java/test/byte-buddy.jar"/>
@@ -43,6 +44,7 @@
 	<classpathentry kind="lib" path="lib/meconsole010.jar"/>
 	<classpathentry kind="lib" path="lib/java/runtime/princess-assertionless.jar" sourcepath="lib/java-contrib/princess-sources-assertionless.zip"/>
 	<classpathentry kind="lib" path="lib/java/runtime/scala-library.jar"/>
+	<classpathentry kind="lib" path="lib/java/runtime/javasmt.jar" sourcepath="lib/java-contrib/javasmt-sources.jar"/>
 	<classpathentry kind="src" path=".apt-generated">
 		<attributes>
 			<attribute name="optional" value="true"/>
@@ -54,5 +56,7 @@
 		</attributes>
 	</classpathentry>
 	<classpathentry kind="lib" path="/JavaSMT/${ivy.module}-1.0.1-67-g1e4e172.jar" sourcepath="/JavaSMT/${ivy.module}-1.0.1-67-g1e4e172-sources.jar"/>
+	<classpathentry kind="lib" path="lib/jna.jar"/>
+	<classpathentry kind="lib" path="lib/llvm-j.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

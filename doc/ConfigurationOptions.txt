@@ -117,6 +117,10 @@ solver.z3.usePhantomReferences = false
 # maximum number of condition adjustments (-1 for infinite)
 adjustableconditions.adjustmentLimit = -1
 
+# number of threads, positive values match exactly, with -1 we use the number
+# of available cores or the machine automatically.
+algorithm.parallelBam.numberOfThreads = -1
+
 # use a BMC like algorithm that checks for satisfiability after the analysis
 # has finished, works only with PredicateCPA
 analysis.algorithm.BMC = false
@@ -145,12 +149,27 @@ analysis.algorithm.pdr = false
 # use a proof check algorithm to validate a previously generated proof
 analysis.algorithm.proofCheck = false
 
+# use a proof check algorithm to validate a previously generated proofand
+# extract requirements on a (reconfigurable) HW from the proof
+analysis.algorithm.proofCheckAndGetHWRequirements = false
+
+# use a proof check algorithm to validate a previously generated proofand
+# read the configuration for checking from the proof
+analysis.algorithm.proofCheckReadConfig = false
+
+# use a proof check algorithm that using pcc.strategy=arg.ARG_CMCStrategy to
+# validate a previously generated proof
+analysis.algorithm.proofCheckWithARGCMCStrategy = false
+
 # do analysis and then check if reached set fulfills property specified by
 # ConfigurableProgramAnalysisWithPropertyChecker
 analysis.algorithm.propertyCheck = false
 
 # Use termination algorithm to prove (non-)termination.
 analysis.algorithm.termination = false
+
+# run the parallel BAM algortihm.
+analysis.algorithm.useParallelBAM = false
 
 # use a second model checking run (e.g., with CBMC or a different CPAchecker
 # configuration) to double-check counter-examples
@@ -165,8 +184,7 @@ analysis.checkProof = false
 # use assumption collecting algorithm
 analysis.collectAssumptions = false
 
-# After an incomplete analysis constructs a residual program which contains
-# all program paths which are not fully explored
+# Solely construct the residual program for a given condition/assumption.
 analysis.constructResidualProgram = false
 
 # continue analysis after a unsupported code was found on one path
@@ -190,7 +208,11 @@ analysis.functionPointerEdgesForUnknownPointer = true
 
 # potential targets for call edges created for function pointer calls
 analysis.functionPointerTargets = {
-          FunctionSet.USED_IN_CODE, FunctionSet.RETURN_VALUE, FunctionSet.EQ_PARAM_TYPES}
+          FunctionSet.USED_IN_CODE,
+          FunctionSet.RETURN_VALUE,
+          FunctionSet.EQ_PARAM_TYPES,
+          FunctionSet.EQ_PARAM_SIZES,
+          FunctionSet.EQ_PARAM_COUNT}
 
 # What CFA nodes should be the starting point of the analysis?
 analysis.initialStatesFor = Sets.newHashSet(InitialStatesFor.ENTRY)
@@ -282,6 +304,10 @@ analysis.traversal.useReverseLoopstack = false
 # 'analysis.traversal.order'.
 analysis.traversal.useReversePostorder = false
 
+# After an incomplete analysis constructs a residual program which contains
+# all program paths which are not fully explored
+analysis.unexploredPathsAsProgram = false
+
 # Do not report unknown if analysis terminated, report true (UNSOUND!).
 analysis.unknownAsTrue = false
 
@@ -291,6 +317,9 @@ analysis.unknownIfUnrestrictedProgram = false
 
 # add declarations for global variables before entry function
 analysis.useGlobalVars = true
+
+# add loop-structure information to CFA.
+analysis.useLoopStructure = true
 
 # Use analyses parallely. The resulting reachedset is the one of the first
 # analysis finishing in time. All other analyses are terminated.
@@ -310,6 +339,10 @@ assumptions.automatonIgnoreAssumptions = false
 # write collected assumptions to file
 assumptions.export = true
 assumptions.file = "assumptions.txt"
+
+# If it is enabled, check if a state that should lead to false state indeed
+# has successors.
+assumptions.removeNonExploredWithoutSuccessors = false
 
 # comma-separated list of files with specifications that should be used 
 # in a backwards analysis; used if the analysis starts at the target states!
@@ -371,10 +404,6 @@ blockreducer.reducedCfaFile = "ReducedCfa.rsf"
 # Do at most n summarizations on a node.
 blockreducer.reductionThreshold = 100
 
-# Generate additional invariants by induction and add them to the induction
-# hypothesis.
-bmc.addInvariantsByInduction = true
-
 # If BMC did not find a bug, check whether the bounding did actually remove
 # parts of the state space (this is similar to CBMC's unwinding assertions).
 bmc.boundingAssertions = true
@@ -387,8 +416,12 @@ bmc.checkTargetStates = true
 # try using induction to verify programs with loops
 bmc.induction = false
 
+# Strategy for generating auxiliary invariants
+bmc.invariantGenerationStrategy = REACHED_SET
+  enum:     [INDUCTION, REACHED_SET, DO_NOTHING]
+
 # Export auxiliary invariants used for induction.
-bmc.invariantsExport = "invariants.graphml"
+bmc.invariantsExport = no default value
 
 # Propagates the interrupts of the invariant generator.
 bmc.propagateInvGenInterrupts = false
@@ -768,6 +801,15 @@ cpa.arg.dumpAfterIteration = false
 # export final ARG as .dot file
 cpa.arg.export = true
 
+# Only enable CLOSEFUNCTIONBLOCK if you are sure that the ARG merges
+# different flows through a function at the end of the function.
+cpa.arg.export.code.blockAtFunctionEnd = KEEPBLOCK
+  enum:     [CLOSEFUNCTIONBLOCK, ADDNEWBLOCK, KEEPBLOCK]
+
+# How to deal with target states during code generation
+cpa.arg.export.code.handleTargetStates = NONE
+  enum:     [NONE, RUNTIMEVERIFICATION, ASSERTFALSE, FRAMACPRAGMA]
+
 # write include directives
 cpa.arg.export.code.header = true
 
@@ -866,6 +908,10 @@ cpa.bam.argFile = "BlockedARG.dot"
 # or any class that implements a PartitioningHeuristic
 cpa.bam.blockHeuristic = no default value
 
+# only consider functions with a matching name, i.e., select only some
+# functions directly.
+cpa.bam.blockHeuristic.functionPartitioning.matchFunctions = no default value
+
 # only consider function with a minimum number of calls. This approach is
 # similar to 'inlining' functions used only a few times. Info: If a function
 # is called several times in a loop, we only count 'one' call.
@@ -935,31 +981,6 @@ cpa.bdd.merge = "join"
 # Threshold for unrolling blocks before stopping. A value of 0 disables the
 # threshold.
 cpa.blockcount.threshold = 1
-
-# Number of loop iterations before the loop counter is abstracted. Zero is
-# equivalent to no limit.
-cpa.bounds.loopIterationsBeforeAbstraction = 0
-
-# this option controls how the maxLoopIterations condition is adjusted when a
-# condition adjustment is invoked.
-cpa.bounds.maxLoopIterationAdjusterFactory = STATIC
-  enum:     [STATIC, INCREMENT, DOUBLE]
-
-# threshold for unrolling loops of the program (0 is infinite)
-# works only if assumption storage CPA is enabled, because otherwise it would
-# be unsound
-cpa.bounds.maxLoopIterations = 0
-
-# threshold for adjusting the threshold for unrolling loops of the program (0
-# is infinite).
-# only relevant in combination with a non-static maximum loop iteration
-# adjuster.
-cpa.bounds.maxLoopIterationsUpperBound = 0
-
-# threshold for unwinding recursion (0 is infinite)
-# works only if assumption storage CPA is enabled, because otherwise it would
-# be unsound
-cpa.bounds.maxRecursionDepth = 0
 
 # depth of recursion bound
 cpa.callstack.depth = 0
@@ -1211,6 +1232,9 @@ cpa.invariants.maximumFormulaDepth = 4
 cpa.invariants.merge = "PRECISIONDEPENDENT"
   allowed values: [JOIN, SEP, PRECISIONDEPENDENT]
 
+# use pointer-alias information in strengthening, if available.
+cpa.invariants.usePointerAliasStrengthening = true
+
 # With this option the handling of global variables during the analysis can
 # be fine-tuned. For example while doing a function-wise analysis it is
 # important to assume that all global variables are live. In contrast to
@@ -1223,29 +1247,32 @@ cpa.liveVar.assumeGlobalVariablesAreAlwaysLive = true
 # function calls (in this case FunctionSummaryEdges are used)
 cpa.location.followFunctionCalls = true
 
-# this option determines which merge operator to use
-cpa.loopinvariants.mergeType = "SEP"
-  allowed values: [SEP, MERGE]
-
 # Number of loop iterations before the loop counter is abstracted. Zero is
 # equivalent to no limit.
-cpa.loopstack.loopIterationsBeforeAbstraction = 0
+cpa.loopbound.loopIterationsBeforeAbstraction = 0
 
 # this option controls how the maxLoopIterations condition is adjusted when a
 # condition adjustment is invoked.
-cpa.loopstack.maxLoopIterationAdjusterFactory = STATIC
+cpa.loopbound.maxLoopIterationAdjusterFactory = STATIC
   enum:     [STATIC, INCREMENT, DOUBLE]
 
 # threshold for unrolling loops of the program (0 is infinite)
-# The option is ignored unless AssumptionStorageCPA is enabled (as otherwise
-# it is unsound).
-cpa.loopstack.maxLoopIterations = 0
+# works only if assumption storage CPA is enabled, because otherwise it would
+# be unsound
+cpa.loopbound.maxLoopIterations = 0
 
 # threshold for adjusting the threshold for unrolling loops of the program (0
 # is infinite).
 # only relevant in combination with a non-static maximum loop iteration
 # adjuster.
-cpa.loopstack.maxLoopIterationsUpperBound = 0
+cpa.loopbound.maxLoopIterationsUpperBound = 0
+
+# enable stack-based tracking of loops
+cpa.loopbound.trackStack = false
+
+# this option determines which merge operator to use
+cpa.loopinvariants.mergeType = "SEP"
+  allowed values: [SEP, MERGE]
 
 # Where to perform abstraction
 cpa.lpi.abstractionLocations = LOOPHEAD
@@ -1778,11 +1805,12 @@ cpa.predicate.refinement.maxRefinementSize = 0
 cpa.predicate.refinement.performInitialStaticRefinement = false
 
 # Which predicates should be used as basis for a new precision.ALL: During
-# refinement, keep predicates from all removed parts of the ARG.CUTPOINT:
-# Only predicates from the cut-point's precision are kept.TARGET: Only
-# predicates from the target state's precision are kept.
+# refinement, collect predicates from the complete ARG.SUBGRAPH: During
+# refinement, keep predicates from all removed parts (subgraph) of the
+# ARG.CUTPOINT: Only predicates from the cut-point's precision are
+# kept.TARGET: Only predicates from the target state's precision are kept.
 cpa.predicate.refinement.predicateBasisStrategy = TARGET
-  enum:     [ALL, TARGET, CUTPOINT]
+  enum:     [ALL, SUBGRAPH, TARGET, CUTPOINT]
 
 # which sliced prefix should be used for interpolation
 cpa.predicate.refinement.prefixPreference = PrefixSelector.NO_SELECTION
@@ -1967,6 +1995,9 @@ cpa.sign.merge = "JOIN"
 # which stop operator to use for SignCPA
 cpa.sign.stop = "SEP"
   allowed values: [SEP, JOIN]
+
+# max length of a chain of states, -1 for infinity
+cpa.singleSuccessorCompactor.maxChainLength = -1
 
 # Apply AND- LBE transformation to loop transition relation.
 cpa.slicing.applyLBETransformation = true
@@ -2276,6 +2307,14 @@ cpa.value.refinement.addAssumptionsToCex = true
 # whether or not to use heuristic to avoid similar, repeated refinements
 cpa.value.refinement.avoidSimilarRepeatedRefinement = false
 
+# Which base precision should be used for a new precision? ALL: During
+# refinement, collect precisions from the complete ARG. SUBGRAPH: During
+# refinement, keep precision from all removed parts (subgraph) of the ARG.
+# CUTPOINT: Only the cut-point's precision is kept. TARGET: Only the target
+# state's precision is kept.
+cpa.value.refinement.basisStrategy = SUBGRAPH
+  enum:     [ALL, SUBGRAPH, TARGET, CUTPOINT]
+
 # whether or not to do lazy-abstraction
 cpa.value.refinement.doLazyAbstraction = true
 
@@ -2315,6 +2354,9 @@ cpa.value.refinement.searchForFurtherErrorPaths = false
 
 # store all refined paths
 cpa.value.refinement.storeAllRefinedPaths = false
+
+# if this option is set to false, constraints are never kept
+cpa.value.refinement.trackConstraints = true
 
 # whether to use the top-down interpolation strategy or the bottom-up
 # interpolation strategy
@@ -2366,15 +2408,18 @@ cpa.value.trackJavaArrayValues = true
 # Specify simple custom instruction by specifying the binary operator op. All
 # simple cis are of the form r = x op y. Leave empty (default) if you specify
 # a more complex custom instruction within code.
-custominstructions.binaryOperatorForSimpleCustomInstruction = ""
-  allowed values: [MULTIPLY, DIVIDE, MODULO, PLUS, MINUS, SHIFT_LEFT, SHIFT_RIGHT, LESS_THAN, GREATER_THAN, LESS_EQUAL, GREATER_EQUAL, BINARY_AND, BINARY_XOR, BINARY_OR, EQUALS, NOT_EQUALS, ]
+custominstructions.binaryOperatorForSimpleCustomInstruction = PLUS
+  enum:     [MULTIPLY, DIVIDE, MODULO, PLUS, MINUS, SHIFT_LEFT, SHIFT_RIGHT, LESS_THAN,
+             GREATER_THAN, LESS_EQUAL, GREATER_EQUAL, BINARY_AND, BINARY_XOR, BINARY_OR,
+             EQUALS, NOT_EQUALS]
 
 # Signature for custom instruction, describes names and order of input and
 # output variables of a custom instruction
 custominstructions.ciSignature = "ci_spec.txt"
 
-# File to be parsed
-custominstructions.definitionFile = no default value
+# File specifying start locations of custom instruction applications
+# File to dump start location of identified custom instruction applications
+custominstructions.definitionFile = "ci_def.txt"
 
 # Where to dump the requirements on custom instruction extracted from
 # analysis
@@ -2383,6 +2428,11 @@ custominstructions.dumpCIRequirements = "ci%d.smt"
 # Try to remove informations from requirements which is irrelevant for custom
 # instruction behavior
 custominstructions.enableRequirementSlicing = false
+
+# Specifies the mode how custom instruction applications in program are
+# identified.
+custominstructions.mode = OPERATOR
+  enum:     [MANUAL, OPERATOR]
 
 # Qualified name of class for abstract state which provides custom
 # instruction requirements.
@@ -2448,9 +2498,9 @@ java.typeHierarchyFile = "typeHierarchy.dot"
 # Specifies the java version of source code accepted
 java.version = JavaCore.VERSION_1_7
 
-# C or Java?
+# C, Java, or LLVM IR?
 language = C
-  enum:     [C, JAVA]
+  enum:     [C, JAVA, LLVM]
 
 # Limit for cpu time used by CPAchecker (use seconds or specify a unit; -1
 # for infinite)
@@ -2491,10 +2541,6 @@ locmapper.dumpTokenizedProgramToFile = no default value
 # all used options are printed
 log.usedOptions.export = false
 
-# Whether to check for memory safety properties (this can be specified by
-# passing an appropriate .prp file to the -spec parameter).
-memorysafety.check = false
-
 # When checking for memory safety properties, use this configuration file
 # instead of the current one.
 memorysafety.config = no default value
@@ -2502,10 +2548,6 @@ memorysafety.config = no default value
 # which merge operator to use for LiveVariablesCPA
 merge = "JOIN"
   allowed values: [SEP, JOIN]
-
-# Whether to check for the overflow property (this can be specified by
-# passing an appropriate .prp file to the -spec parameter).
-overflow.check = false
 
 # When checking for the overflow property, use this configuration file
 # instead of the current one.
@@ -2555,6 +2597,10 @@ parser.transformTokensToLines = false
 # file numbers printed by CPAchecker will refer to the pre-processed file,
 # not the original input file.
 parser.usePreprocessor = false
+
+# Specifies the mode how HW requirements are detected in the proof.
+pcc.HWrequirements.extraction.mode = OPERATOR
+  enum:     [MANUAL, OPERATOR]
 
 # Enable if used property checker implements satisfiesProperty(AbstractState)
 # and checked property is violated for a set iff an element in this set
@@ -2667,6 +2713,9 @@ pcc.resultcheck.writeProof = false
 # prove the property.
 pcc.sliceProof = false
 
+# writes the validation configuration required for checking to proof
+pcc.storeConfig = false
+
 # Qualified name for class which implements certification strategy, hence
 # proof writing, to be used.
 pcc.strategy = no default value
@@ -2674,10 +2723,17 @@ pcc.strategy = no default value
 # number of cpus/cores which should be used in parallel for proof checking
 pcc.useCores = 1
 
-# Simplifies the global transition relation by keeping only those transitions
-# whose corresponding blocks are backwards reachable from the target
-# locations.
-pdr.removeRedundantTransitions = false
+# Try to shorten the lifted state further by checking if the lifting query is
+# still valid after dropping each literal in turn.
+pdr.dropLiteralsBeyondUnsatCoreAfterLifting = false
+
+# The maximum number of attempts at dropping literals during the inductive
+# generalization of states.
+pdr.maxAttemptsToDropLiteralsDuringGeneralization = 10
+
+# The maximum number of literals that should be dropped during the inductive
+# generalization of states.
+pdr.maxLiteralsToDropDuringGeneralization = 5
 
 # whether to track relevant variables only at the exact program location
 # (sharing=location), or within their respective (function-/global-) scope
@@ -2775,7 +2831,10 @@ report.export = true
 # File name for analysis report in case no counterexample was found.
 report.file = "Report.html"
 
-# set specification file to automaton which guide analysis along assumption
+# set path to file which contains the condition
+residualprogram.assumptionFile = no default value
+
+# set specification file to automaton which guides analysis along assumption
 # produced by incomplete analysis,e.g.,
 # config/specification/AssumptionGuidingAutomaton.spc, to enable residual
 # program from combination of program and assumption condition
@@ -2784,8 +2843,9 @@ residualprogram.assumptionGuider = no default value
 # write residual program to file
 residualprogram.file = "residualProgram.c"
 
-# write collected assumptions as automaton to file
-residualprogram.slice = true
+# which strategy to use to generate the residual program
+residualprogram.strategy = CONDITION
+  enum:     [SLICING, CONDITION, COMBINATION]
 
 # combine (partial) ARGs obtained by restarts of the analysis after an
 # unknown result with a different configuration
@@ -2874,10 +2934,6 @@ statistics.print = false
 # which stop operator to use for LiveVariablesCPA
 stop = "SEP"
   allowed values: [SEP, JOIN, NEVER]
-
-# Whether to check for the termination property (this can be specified by
-# passing an appropriate .prp file to the -spec parameter).
-termination.check = false
 
 # When checking for the termination property, use this configuration file
 # instead of the current one.

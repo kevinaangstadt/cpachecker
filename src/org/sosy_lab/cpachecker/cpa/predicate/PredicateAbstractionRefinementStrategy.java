@@ -61,7 +61,7 @@ import org.sosy_lab.common.configuration.IntegerOption;
 import org.sosy_lab.common.configuration.InvalidConfigurationException;
 import org.sosy_lab.common.configuration.Option;
 import org.sosy_lab.common.configuration.Options;
-import org.sosy_lab.common.io.MoreFiles;
+import org.sosy_lab.common.io.IO;
 import org.sosy_lab.common.io.PathTemplate;
 import org.sosy_lab.common.log.LogManager;
 import org.sosy_lab.cpachecker.cfa.model.CFANode;
@@ -116,7 +116,8 @@ public class PredicateAbstractionRefinementStrategy extends RefinementStrategy {
 
   @Option(secure=true, name="refinement.predicateBasisStrategy",
       description="Which predicates should be used as basis for a new precision."
-          + "ALL: During refinement, keep predicates from all removed parts of the ARG."
+          + "ALL: During refinement, collect predicates from the complete ARG."
+          + "SUBGRAPH: During refinement, keep predicates from all removed parts (subgraph) of the ARG."
           + "CUTPOINT: Only predicates from the cut-point's precision are kept."
           + "TARGET: Only predicates from the target state's precision are kept.")
   /* There are usually more predicates at the target location that at the cut-point.
@@ -124,9 +125,10 @@ public class PredicateAbstractionRefinementStrategy extends RefinementStrategy {
    * - (nearly) no difference for predicate analysis L.
    * - predicate analysis LF is much slower with CUTPOINT than with TARGET or ALL
    *   (especially on the source files product-lines/minepump_spec*).
+   * 05/2017: evaluation confirmed on sv-benchmarks.
    */
   private PredicateBasisStrategy predicateBasisStrategy = PredicateBasisStrategy.TARGET;
-  private static enum PredicateBasisStrategy {ALL, TARGET, CUTPOINT}
+  private static enum PredicateBasisStrategy {ALL, SUBGRAPH, TARGET, CUTPOINT}
 
   @Option(secure=true, name="refinement.restartAfterRefinements",
       description="Do a complete restart (clearing the reached set) "
@@ -425,6 +427,9 @@ public class PredicateAbstractionRefinementStrategy extends RefinementStrategy {
     PredicatePrecision basePrecision;
     switch(predicateBasisStrategy) {
     case ALL:
+      basePrecision = findAllPredicatesFromSubgraph((ARGState)reached.getFirstState(), reached);
+      break;
+    case SUBGRAPH:
       basePrecision = findAllPredicatesFromSubgraph(refinementRoot, reached);
       break;
     case TARGET:
@@ -480,7 +485,7 @@ public class PredicateAbstractionRefinementStrategy extends RefinementStrategy {
 
     if (dumpPredicates && dumpPredicatesFile != null) {
       Path precFile = dumpPredicatesFile.getPath(precisionUpdate.getUpdateCount());
-      try (Writer w = MoreFiles.openOutputFile(precFile, Charset.defaultCharset())) {
+      try (Writer w = IO.openOutputFile(precFile, Charset.defaultCharset())) {
         precisionWriter.writePredicateMap(
             ImmutableSetMultimap.copyOf(newPredicates),
             ImmutableSetMultimap.<CFANode, AbstractionPredicate>of(),
@@ -558,7 +563,7 @@ public class PredicateAbstractionRefinementStrategy extends RefinementStrategy {
    * their predicates.
    * @return a new precision with all these predicates.
    */
-  private PredicatePrecision findAllPredicatesFromSubgraph(
+  public static PredicatePrecision findAllPredicatesFromSubgraph(
       ARGState refinementRoot, UnmodifiableReachedSet reached) {
     return PredicatePrecision.unionOf(
         from(refinementRoot.getSubgraph())

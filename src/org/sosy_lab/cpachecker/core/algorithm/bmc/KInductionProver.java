@@ -56,12 +56,12 @@ import org.sosy_lab.cpachecker.core.algorithm.invariants.InvariantSupplier;
 import org.sosy_lab.cpachecker.core.algorithm.invariants.KInductionInvariantGenerator;
 import org.sosy_lab.cpachecker.core.interfaces.AbstractState;
 import org.sosy_lab.cpachecker.core.interfaces.ConfigurableProgramAnalysis;
+import org.sosy_lab.cpachecker.core.interfaces.LoopIterationBounding;
+import org.sosy_lab.cpachecker.core.interfaces.LoopIterationReportingState;
 import org.sosy_lab.cpachecker.core.interfaces.Precision;
 import org.sosy_lab.cpachecker.core.interfaces.StateSpacePartition;
 import org.sosy_lab.cpachecker.core.reachedset.ReachedSet;
 import org.sosy_lab.cpachecker.core.reachedset.ReachedSetFactory;
-import org.sosy_lab.cpachecker.cpa.bounds.BoundsCPA;
-import org.sosy_lab.cpachecker.cpa.bounds.BoundsState;
 import org.sosy_lab.cpachecker.cpa.predicate.PredicateCPA;
 import org.sosy_lab.cpachecker.exceptions.CPAException;
 import org.sosy_lab.cpachecker.exceptions.CPATransferException;
@@ -120,8 +120,6 @@ class KInductionProver implements AutoCloseable {
 
   private @Nullable ProverEnvironment prover = null;
 
-  private InvariantSupplier invariantsSupplier;
-
   private ExpressionTreeSupplier expressionTreeSupplier;
 
   private BooleanFormula loopHeadInvariants;
@@ -169,7 +167,6 @@ class KInductionProver implements AutoCloseable {
     pfmgr = stepCasePredicateCPA.getPathFormulaManager();
     loopHeadInvariants = bfmgr.makeTrue();
 
-    invariantsSupplier = InvariantSupplier.TrivialInvariantSupplier.INSTANCE;
     expressionTreeSupplier = ExpressionTreeSupplier.TrivialInvariantSupplier.INSTANCE;
 
     loopHeads = ImmutableSet.copyOf(pLoopHeads);
@@ -207,27 +204,25 @@ class KInductionProver implements AutoCloseable {
   }
 
   private InvariantSupplier getCurrentInvariantSupplier() throws InterruptedException {
-    if (!invariantGenerationRunning) {
-      return invariantsSupplier;
-    }
-    try {
-      if (invariantGenerator instanceof KInductionInvariantGenerator) {
-        return ((KInductionInvariantGenerator) invariantGenerator).getSupplier();
-      } else {
-        // in the general case we have to retrieve the invariants from a reachedset
-        return new FormulaInvariantsSupplier(invariantGenerator.get());
+    if (invariantGenerationRunning) {
+      try {
+        if (invariantGenerator instanceof KInductionInvariantGenerator) {
+          return ((KInductionInvariantGenerator) invariantGenerator).getSupplier();
+        } else {
+          // in the general case we have to retrieve the invariants from a reachedset
+          return new FormulaInvariantsSupplier(invariantGenerator.get());
+        }
+      } catch (CPAException e) {
+        logger.logUserException(Level.FINE, e, "Invariant generation failed.");
+        invariantGenerationRunning = false;
+      } catch (InterruptedException e) {
+        shutdownNotifier.shutdownIfNecessary();
+        logger.log(Level.FINE, "Invariant generation was cancelled.");
+        logger.logDebugException(e);
+        invariantGenerationRunning = false;
       }
-    } catch (CPAException e) {
-      logger.logUserException(Level.FINE, e, "Invariant generation failed.");
-      invariantGenerationRunning = false;
-      return invariantsSupplier;
-    } catch (InterruptedException e) {
-      shutdownNotifier.shutdownIfNecessary();
-      logger.log(Level.FINE, "Invariant generation was cancelled.");
-      logger.logDebugException(e);
-      invariantGenerationRunning = false;
-      return invariantsSupplier;
     }
+    return InvariantSupplier.TrivialInvariantSupplier.INSTANCE;
   }
 
   private ExpressionTreeSupplier getCurrentExpressionTreeInvariantSupplier() throws InterruptedException {
@@ -277,6 +272,7 @@ class KInductionProver implements AutoCloseable {
       PathFormulaManager pPFMGR,
       PathFormula pContext)
       throws CPATransferException, InterruptedException {
+    shutdownNotifier.shutdownIfNecessary();
     InvariantSupplier currentInvariantsSupplier = getCurrentInvariantSupplier();
     BooleanFormulaManager bfmgr = pFMGR.getBooleanFormulaManager();
 
@@ -385,7 +381,7 @@ class KInductionProver implements AutoCloseable {
     // Run algorithm in order to create formula (A & B)
     logger.log(Level.INFO, "Running algorithm to create induction hypothesis");
 
-    BoundsCPA stepCaseBoundsCPA = CPAs.retrieveCPA(cpa, BoundsCPA.class);
+    LoopIterationBounding stepCaseBoundsCPA = CPAs.retrieveCPA(cpa, LoopIterationBounding.class);
 
     // Initialize the reached set if necessary
     ensureReachedSetInitialized(reached);
@@ -401,6 +397,7 @@ class KInductionProver implements AutoCloseable {
         buildArtificialConjunctions(pCandidateInvariants);
     Iterable<CandidateInvariant> candidatesToCheck = Iterables.concat(pCandidateInvariants, artificialConjunctions);
     for (CandidateInvariant candidateInvariant : candidatesToCheck) {
+      shutdownNotifier.shutdownIfNecessary();
 
       if (!canBeAsserted(candidateInvariant, pImmediateLoopHeads)) {
         assertions.put(candidateInvariant, bfmgr.makeTrue());
@@ -408,25 +405,34 @@ class KInductionProver implements AutoCloseable {
       }
 
       final BooleanFormula predecessorAssertion;
-
-      // If we already built a formula for the violation of the invariant for
-      // k (previous attempt), we can negate and reuse it here as an assertion
-      BooleanFormula previousViolation = violationFormulas.get(candidateInvariant);
-      if (previousViolation != null && previousK == pK) {
-        predecessorAssertion = bfmgr.not(previousViolation);
+      if (candidateInvariant instanceof TargetLocationCandidateInvariant) {
+        // For the actual safety property, the predecessor safety assertion
+        // is already implied by the successor violation:
+        // Because we never continue after an error state,
+        // a path that violates the property in iteration k+1
+        // cannot have "passed through" any violation
+        // in the previous iterations anyway.
+        predecessorAssertion = bfmgr.makeBoolean(true);
       } else {
-        // Build the formula
-        if (predecessorReachedSet == null) {
-          if (pK < 1) {
-            predecessorReachedSet = reachedSetFactory.create();
-          } else {
-            predecessorReachedSet = reached;
-            stepCaseBoundsCPA.setMaxLoopIterations(pK);
-            BMCHelper.unroll(logger, predecessorReachedSet, reachedSetInitializer, algorithm, cpa);
+        // If we already built a formula for the violation of the invariant for
+        // k (previous attempt), we can negate and reuse it here as an assertion
+        BooleanFormula previousViolation = violationFormulas.get(candidateInvariant);
+        if (previousViolation != null && previousK == pK) {
+          predecessorAssertion = bfmgr.not(previousViolation);
+        } else {
+          // Build the formula
+          if (predecessorReachedSet == null) {
+            if (pK < 1) {
+              predecessorReachedSet = reachedSetFactory.create();
+            } else {
+              predecessorReachedSet = reached;
+              stepCaseBoundsCPA.setMaxLoopIterations(pK);
+              BMCHelper.unroll(logger, predecessorReachedSet, reachedSetInitializer, algorithm, cpa);
+            }
           }
+          predecessorAssertion =
+              candidateInvariant.getAssertion(predecessorReachedSet, fmgr, pfmgr, 1);
         }
-        predecessorAssertion =
-            candidateInvariant.getAssertion(predecessorReachedSet, fmgr, pfmgr, 1);
       }
       assertions.put(candidateInvariant, predecessorAssertion);
     }
@@ -442,6 +448,7 @@ class KInductionProver implements AutoCloseable {
                 loopHeadStates, getCurrentLoopHeadInvariants(loopHeadStates), fmgr, 1));
     BooleanFormula invariants = loopHeadInv;
     for (CandidateInvariant candidateInvariant : confirmedCandidates) {
+      shutdownNotifier.shutdownIfNecessary();
       invariants = bfmgr.and(invariants, candidateInvariant.getAssertion(reached, fmgr, pfmgr, 1));
     }
 
@@ -456,6 +463,7 @@ class KInductionProver implements AutoCloseable {
     push(invariants); // Assert the known invariants
 
     for (CandidateInvariant candidateInvariant : candidatesToCheck) {
+      shutdownNotifier.shutdownIfNecessary();
       if (artificialConjunctions.contains(candidateInvariant)
           && isSizeLessThanOrEqualTo(((CandidateInvariantConjunction) candidateInvariant).getElements(), 1)) {
         continue;
@@ -464,8 +472,7 @@ class KInductionProver implements AutoCloseable {
       // Obtain the predecessor assertion created earlier
       BooleanFormula predecessorAssertion = assertions.get(candidateInvariant);
       // Create the successor violation formula
-      BooleanFormula successorViolation =
-          bfmgr.not(candidateInvariant.getAssertion(reached, fmgr, pfmgr, 1));
+      BooleanFormula successorViolation = getSuccessorViolation(candidateInvariant, reached, pK);
       // Record the successor violation formula to reuse its negation as an
       // assertion in a future induction attempt
       violationFormulas.put(candidateInvariant, successorViolation);
@@ -494,6 +501,7 @@ class KInductionProver implements AutoCloseable {
               BMCHelper.assertAt(
                   loopHeadStates, getCurrentLoopHeadInvariants(loopHeadStates), fmgr, 1));
       while (!isInvariant && !loopHeadInv.equals(oldLoopHeadInv)) {
+        shutdownNotifier.shutdownIfNecessary();
         invariants = loopHeadInv;
         for (CandidateInvariant ci : confirmedCandidates) {
           invariants = bfmgr.and(invariants, ci.getAssertion(reached, fmgr, pfmgr, 1));
@@ -551,6 +559,16 @@ class KInductionProver implements AutoCloseable {
     return numberOfSuccessfulProofs == pCandidateInvariants.size();
   }
 
+  private BooleanFormula getSuccessorViolation(CandidateInvariant pCandidateInvariant,
+      ReachedSet pReached, int pK) throws CPATransferException, InterruptedException {
+    FluentIterable<AbstractState> reached = FluentIterable.from(pReached);
+    if (pCandidateInvariant instanceof TargetLocationCandidateInvariant) {
+      reached = filterIteration(reached, pK + 1);
+    }
+    BooleanFormula assertion = pCandidateInvariant.getAssertion(reached, fmgr, pfmgr, 1);
+    return bfmgr.not(assertion);
+  }
+
   private FluentIterable<AbstractState> filterLoopHeadStates(ReachedSet pReached,
       ImmutableSet<CFANode> pLoopHeads) {
     FluentIterable<AbstractState> loopHeadStates =
@@ -570,7 +588,7 @@ class KInductionProver implements AutoCloseable {
           if (pArg0 == null) {
             return false;
           }
-          BoundsState ls = AbstractStates.extractStateByType(pArg0, BoundsState.class);
+          LoopIterationReportingState ls = AbstractStates.extractStateByType(pArg0, LoopIterationReportingState.class);
           return ls != null && ls.getDeepestIteration() == pIteration;
         });
   }

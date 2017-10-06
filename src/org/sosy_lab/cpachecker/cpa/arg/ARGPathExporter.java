@@ -23,6 +23,8 @@
  */
 package org.sosy_lab.cpachecker.cpa.arg;
 
+import static com.google.common.collect.FluentIterable.from;
+import static org.sosy_lab.cpachecker.util.AbstractStates.extractStateByType;
 import static org.sosy_lab.cpachecker.util.automaton.AutomatonGraphmlCommon.SINK_NODE_ID;
 
 import com.google.common.base.Function;
@@ -37,6 +39,7 @@ import com.google.common.collect.FluentIterable;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Lists;
@@ -68,11 +71,12 @@ import org.sosy_lab.common.configuration.Option;
 import org.sosy_lab.common.configuration.Options;
 import org.sosy_lab.common.log.LogManager;
 import org.sosy_lab.cpachecker.cfa.CFA;
-import org.sosy_lab.cpachecker.cfa.Language;
 import org.sosy_lab.cpachecker.cfa.ast.AExpression;
 import org.sosy_lab.cpachecker.cfa.ast.AExpressionStatement;
+import org.sosy_lab.cpachecker.cfa.ast.AFunctionCall;
 import org.sosy_lab.cpachecker.cfa.ast.AFunctionCallAssignmentStatement;
 import org.sosy_lab.cpachecker.cfa.ast.AIdExpression;
+import org.sosy_lab.cpachecker.cfa.ast.AStatement;
 import org.sosy_lab.cpachecker.cfa.ast.FileLocation;
 import org.sosy_lab.cpachecker.cfa.ast.c.CAddressOfLabelExpression;
 import org.sosy_lab.cpachecker.cfa.ast.c.CArraySubscriptExpression;
@@ -98,12 +102,12 @@ import org.sosy_lab.cpachecker.cfa.model.AStatementEdge;
 import org.sosy_lab.cpachecker.cfa.model.AssumeEdge;
 import org.sosy_lab.cpachecker.cfa.model.BlankEdge;
 import org.sosy_lab.cpachecker.cfa.model.CFAEdge;
+import org.sosy_lab.cpachecker.cfa.model.CFAEdgeType;
 import org.sosy_lab.cpachecker.cfa.model.CFANode;
 import org.sosy_lab.cpachecker.cfa.model.FunctionCallEdge;
 import org.sosy_lab.cpachecker.cfa.model.FunctionEntryNode;
 import org.sosy_lab.cpachecker.cfa.model.FunctionExitNode;
 import org.sosy_lab.cpachecker.cfa.postprocessing.global.CFACloner;
-import org.sosy_lab.cpachecker.cfa.types.MachineModel;
 import org.sosy_lab.cpachecker.core.Specification;
 import org.sosy_lab.cpachecker.core.counterexample.AssumptionToEdgeAllocator;
 import org.sosy_lab.cpachecker.core.counterexample.CExpressionToOrinalCodeVisitor;
@@ -115,6 +119,7 @@ import org.sosy_lab.cpachecker.core.interfaces.Property;
 import org.sosy_lab.cpachecker.cpa.arg.graphexport.Edge;
 import org.sosy_lab.cpachecker.cpa.arg.graphexport.TransitionCondition;
 import org.sosy_lab.cpachecker.cpa.threading.ThreadingState;
+import org.sosy_lab.cpachecker.cpa.threading.ThreadingTransferRelation;
 import org.sosy_lab.cpachecker.cpa.value.ValueAnalysisState;
 import org.sosy_lab.cpachecker.cpa.value.refiner.ValueAnalysisConcreteErrorPathAllocator;
 import org.sosy_lab.cpachecker.util.AbstractStates;
@@ -201,10 +206,6 @@ public class ARGPathExporter {
 
   private final CFA cfa;
 
-  private final MachineModel machineModel;
-
-  private final Language language;
-
   private final AssumptionToEdgeAllocator assumptionToEdgeAllocator;
 
   private final ExpressionTreeFactory<Object> factory = ExpressionTrees.newCachingFactory();
@@ -221,11 +222,9 @@ public class ARGPathExporter {
     Preconditions.checkNotNull(pConfig);
     pConfig.inject(this);
     this.cfa = pCFA;
-    this.machineModel = pCFA.getMachineModel();
-    this.language = pCFA.getLanguage();
-    this.assumptionToEdgeAllocator = new AssumptionToEdgeAllocator(pConfig, pLogger, machineModel);
-    this.verificationTaskMetaData =
-        new VerificationTaskMetaData(pConfig, Optional.of(pSpecification));
+    this.assumptionToEdgeAllocator =
+        new AssumptionToEdgeAllocator(pConfig, pLogger, pCFA.getMachineModel());
+    this.verificationTaskMetaData = new VerificationTaskMetaData(pConfig, pSpecification);
   }
 
   public void writeErrorWitness(
@@ -333,9 +332,10 @@ public class ARGPathExporter {
 
   private String getInitialFileName(ARGState pRootState) {
     Deque<CFANode> worklist = Queues.newArrayDeque(AbstractStates.extractLocations(pRootState));
-
+    Set<CFANode> visited = new HashSet<>();
     while (!worklist.isEmpty()) {
       CFANode l = worklist.pop();
+      visited.add(l);
       for (CFAEdge e : CFAUtils.leavingEdges(l)) {
         Set<FileLocation> fileLocations = CFAUtils.getFileLocationsFromCfaEdge(e);
         if (fileLocations.size() > 0) {
@@ -344,7 +344,9 @@ public class ARGPathExporter {
             return fileName;
           }
         }
-        worklist.push(e.getSuccessor());
+        if (!visited.contains(e.getSuccessor())) {
+          worklist.push(e.getSuccessor());
+        }
       }
     }
 
@@ -391,7 +393,7 @@ public class ARGPathExporter {
         final String pTo,
         final CFAEdge pEdge,
         final Optional<Collection<ARGState>> pFromState,
-        final Map<ARGState, CFAEdgeWithAssumptions> pValueMap) {
+        final Multimap<ARGState, CFAEdgeWithAssumptions> pValueMap) {
 
       attemptSwitchToFunctionScope(pEdge);
 
@@ -413,7 +415,7 @@ public class ARGPathExporter {
         String pFrom,
         CFAEdge pEdge,
         Optional<Collection<ARGState>> pFromState,
-        Map<ARGState, CFAEdgeWithAssumptions> pValueMap) {
+        Multimap<ARGState, CFAEdgeWithAssumptions> pValueMap) {
       appendNewEdge(pFrom, SINK_NODE_ID, pEdge, pFromState, pValueMap);
     }
 
@@ -431,14 +433,16 @@ public class ARGPathExporter {
       isFunctionScope = true;
     }
 
-    /** build a transition-condition for the given edge, i.e. collect all
-     * important data and store it in the new transition-condition. */
+    /**
+     * build a transition-condition for the given edge, i.e. collect all important data and store it
+     * in the new transition-condition.
+     */
     private TransitionCondition constructTransitionCondition(
         final String pFrom,
         final String pTo,
         final CFAEdge pEdge,
         final Optional<Collection<ARGState>> pFromState,
-        final Map<ARGState, CFAEdgeWithAssumptions> pValueMap) {
+        final Multimap<ARGState, CFAEdgeWithAssumptions> pValueMap) {
 
       TransitionCondition result = TransitionCondition.empty();
 
@@ -452,7 +456,7 @@ public class ARGPathExporter {
         stateScopes.put(pTo, isFunctionScope ? functionName : "");
       }
 
-      if (AutomatonGraphmlCommon.handleAsEpsilonEdge(pEdge)) {
+      if (!isFunctionScope || AutomatonGraphmlCommon.handleAsEpsilonEdge(pEdge)) {
         return result;
       }
 
@@ -496,6 +500,7 @@ public class ARGPathExporter {
       }
 
       Optional<FileLocation> minFileLocation = getMinFileLocation(pEdge);
+      Optional<FileLocation> maxFileLocation = getMaxFileLocation(pEdge);
       if (exportLineNumbers && minFileLocation.isPresent()) {
         FileLocation min = minFileLocation.get();
         if (!min.getFileName().equals(defaultSourcefileName)) {
@@ -511,6 +516,10 @@ public class ARGPathExporter {
           result = result.putAndCopy(KeyDef.ORIGINFILE, min.getFileName());
         }
         result = result.putAndCopy(KeyDef.OFFSET, Integer.toString(min.getNodeOffset()));
+        if (maxFileLocation.isPresent()) {
+          FileLocation max = maxFileLocation.get();
+          result = result.putAndCopy(KeyDef.ENDOFFSET, Integer.toString(max.getNodeOffset()+max.getNodeLength()));
+        }
       }
 
       if (exportSourcecode && !pEdge.getRawStatement().trim().isEmpty()) {
@@ -521,7 +530,7 @@ public class ARGPathExporter {
     }
 
     private Optional<FileLocation> getMinFileLocation(CFAEdge pEdge) {
-      Set<FileLocation> locations = CFAUtils.getFileLocationsFromCfaEdge(pEdge);
+      Set<FileLocation> locations = getFileLocationsFromCfaEdge(pEdge);
       if (locations.size() > 0) {
         Iterator<FileLocation> locationIterator = locations.iterator();
         FileLocation min = locationIterator.next();
@@ -536,12 +545,39 @@ public class ARGPathExporter {
       return Optional.empty();
     }
 
+    private Optional<FileLocation> getMaxFileLocation(CFAEdge pEdge) {
+      Set<FileLocation> locations = getFileLocationsFromCfaEdge(pEdge);
+      if (locations.size() > 0) {
+        Iterator<FileLocation> locationIterator = locations.iterator();
+        FileLocation max = locationIterator.next();
+        while (locationIterator.hasNext()) {
+          FileLocation l = locationIterator.next();
+          if (l.getNodeOffset()+l.getNodeLength() > max.getNodeOffset()+max.getNodeLength()) {
+            max = l;
+          }
+        }
+        return Optional.of(max);
+      }
+      return Optional.empty();
+    }
+
+    private Set<FileLocation> getFileLocationsFromCfaEdge(CFAEdge pEdge) {
+      if (pEdge instanceof AStatementEdge) {
+        AStatementEdge statementEdge = (AStatementEdge) pEdge;
+        FileLocation statementLocation = statementEdge.getStatement().getFileLocation();
+        if (!FileLocation.DUMMY.equals(statementLocation)) {
+          return Collections.singleton(statementLocation);
+        }
+      }
+      return CFAUtils.getFileLocationsFromCfaEdge(pEdge);
+    }
+
     private TransitionCondition extractTransitionForStates(
         final String pFrom,
         final String pTo,
         final CFAEdge pEdge,
         final Collection<ARGState> pFromStates,
-        final Map<ARGState, CFAEdgeWithAssumptions> pValueMap,
+        final Multimap<ARGState, CFAEdgeWithAssumptions> pValueMap,
         TransitionCondition result) {
 
       List<ExpressionTree<Object>> code = new ArrayList<>();
@@ -556,7 +592,8 @@ public class ARGPathExporter {
         CFAEdgeWithAssumptions cfaEdgeWithAssignments = delayedAssignments.get(key);
 
         final CFAEdgeWithAssumptions currentEdgeWithAssignments;
-        if (pValueMap != null && (currentEdgeWithAssignments = pValueMap.get(state)) != null) {
+        if (pValueMap != null
+            && (currentEdgeWithAssignments = getFromValueMap(pValueMap, state, pEdge)) != null) {
           if (cfaEdgeWithAssignments == null) {
             cfaEdgeWithAssignments = currentEdgeWithAssignments;
 
@@ -738,16 +775,55 @@ public class ARGPathExporter {
      * We assume that the edge can be assigned to exactly one thread. */
     private TransitionCondition exportThreadId(TransitionCondition result, final CFAEdge pEdge,
         ARGState state) {
-      ThreadingState threadingState = AbstractStates.extractStateByType(state, ThreadingState.class);
+      ThreadingState threadingState = extractStateByType(state, ThreadingState.class);
       if (threadingState != null) {
         for (String threadId : threadingState.getThreadIds()) {
           if (threadingState.getThreadLocation(threadId).getLocationNode().equals(pEdge.getPredecessor())) {
             result = result.putAndCopy(KeyDef.THREADID, threadId);
+            result = result.putAndCopy(KeyDef.THREAD, getUniqueThreadNum(threadId));
+            result = exportThreadCreation(result, pEdge, state, threadingState);
             break;
           }
         }
       }
       return result;
+    }
+
+    private TransitionCondition exportThreadCreation(
+        TransitionCondition result,
+        final CFAEdge pEdge,
+        ARGState state,
+        ThreadingState threadingState) {
+      if (pEdge.getEdgeType() == CFAEdgeType.StatementEdge) {
+        AStatement statement = ((AStatementEdge) pEdge).getStatement();
+        if (statement instanceof AFunctionCall) {
+          AExpression functionNameExp =
+              ((AFunctionCall) statement).getFunctionCallExpression().getFunctionNameExpression();
+          if (functionNameExp instanceof AIdExpression) {
+            final String functionName = ((AIdExpression) functionNameExp).getName();
+            if (ThreadingTransferRelation.THREAD_START.equals(functionName)) {
+              // extract new thread-id from succeeding state. we assume there is only 'one' match
+              ARGState child =
+                  from(state.getChildren()).firstMatch(c -> pEdge == state.getEdgeToChild(c)).get();
+              // search the new created thread-id
+              ThreadingState succThreadingState = extractStateByType(child, ThreadingState.class);
+              for (String threadId : succThreadingState.getThreadIds()) {
+                if (!threadingState.getThreadIds().contains(threadId)) {
+                  // we found the new created thread-id. we assume there is only 'one' match
+                  result = result.putAndCopy(KeyDef.CREATETHREAD, getUniqueThreadNum(threadId));
+                }
+              }
+            }
+          }
+        }
+      }
+      return result;
+    }
+
+    private String getUniqueThreadNum(String threadId) {
+      // TODO threadNum should be unique, hashCode might have collisions, but works for most cases.
+      //      and as long as we do not support multiple LHS for thread-creation, it works.
+      return threadId.hashCode() + "";
     }
 
     /**
@@ -850,16 +926,16 @@ public class ARGPathExporter {
         GraphBuilder pGraphBuilder)
         throws IOException {
 
-      Map<ARGState, CFAEdgeWithAssumptions> valueMap = null;
+      final Multimap<ARGState, CFAEdgeWithAssumptions> valueMap;
       if (pCounterExample.isPresent() && pCounterExample.get().isPreciseCounterExample()) {
         valueMap = pCounterExample.get().getExactVariableValues();
+      } else {
+        valueMap = ImmutableMultimap.of();
       }
 
       final GraphMlBuilder doc;
       try {
-        doc =
-            new GraphMlBuilder(
-                graphType, defaultSourcefileName, language, machineModel, verificationTaskMetaData);
+        doc = new GraphMlBuilder(graphType, defaultSourcefileName, cfa, verificationTaskMetaData);
       } catch (ParserConfigurationException e) {
         throw new IOException(e);
       }
@@ -1543,6 +1619,16 @@ public class ARGPathExporter {
         .ignoreSummaryEdges()
         .traverse(pEdge.getSuccessor(), enterLoopVisitor);
     return Optional.ofNullable(enterLoopVisitor.loopHead);
+  }
+
+  private static @Nullable CFAEdgeWithAssumptions getFromValueMap(
+      Multimap<ARGState, CFAEdgeWithAssumptions> pValueMap, ARGState pState, CFAEdge pEdge) {
+    Iterable<CFAEdgeWithAssumptions> assumptions = pValueMap.get(pState);
+    assumptions = Iterables.filter(assumptions, a -> a.getCFAEdge().equals(pEdge));
+    if (Iterables.isEmpty(assumptions)) {
+      return null;
+    }
+    return Iterables.getOnlyElement(assumptions);
   }
 
 }

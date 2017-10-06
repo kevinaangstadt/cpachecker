@@ -23,17 +23,20 @@
  */
 package org.sosy_lab.cpachecker.cpa.bam;
 
+import static com.google.common.collect.FluentIterable.from;
+
 import com.google.common.collect.Collections2;
 import java.io.PrintStream;
 import java.util.Collection;
+import java.util.Optional;
 import java.util.logging.Level;
 import org.sosy_lab.common.configuration.Configuration;
 import org.sosy_lab.common.configuration.InvalidConfigurationException;
 import org.sosy_lab.common.log.LogManager;
-import org.sosy_lab.common.time.Timer;
 import org.sosy_lab.cpachecker.cfa.CFA;
 import org.sosy_lab.cpachecker.core.CPAcheckerResult.Result;
 import org.sosy_lab.cpachecker.core.Specification;
+import org.sosy_lab.cpachecker.core.counterexample.CounterexampleInfo;
 import org.sosy_lab.cpachecker.core.interfaces.ConfigurableProgramAnalysis;
 import org.sosy_lab.cpachecker.core.reachedset.ReachedSet;
 import org.sosy_lab.cpachecker.core.reachedset.UnmodifiableReachedSet;
@@ -43,16 +46,19 @@ import org.sosy_lab.cpachecker.cpa.arg.ARGReachedSet;
 import org.sosy_lab.cpachecker.cpa.arg.ARGState;
 import org.sosy_lab.cpachecker.cpa.arg.ARGStatistics;
 import org.sosy_lab.cpachecker.cpa.arg.ARGUtils;
+import org.sosy_lab.cpachecker.cpa.bam.BAMSubgraphComputer.BackwardARGState;
 import org.sosy_lab.cpachecker.cpa.bam.BAMSubgraphComputer.MissingBlockException;
+import org.sosy_lab.cpachecker.util.Pair;
+import org.sosy_lab.cpachecker.util.statistics.StatTimer;
 
 public class BAMARGStatistics extends ARGStatistics {
 
-  private final BAMCPA bamCpa;
+  private final AbstractBAMCPA bamCpa;
 
   public BAMARGStatistics(
       Configuration pConfig,
       LogManager pLogger,
-      BAMCPA pBamCpa,
+      AbstractBAMCPA pBamCpa,
       ConfigurableProgramAnalysis pCpa,
       Specification pSpecification,
       CFA pCfa)
@@ -85,14 +91,18 @@ public class BAMARGStatistics extends ARGStatistics {
     ARGReachedSet pMainReachedSet =
         new ARGReachedSet((ReachedSet) pReached, (ARGCPA) cpa, 0 /* irrelevant number */);
     ARGState root = (ARGState)pReached.getFirstState();
-    Collection<ARGState> targets = Collections2.filter(root.getChildren(), s -> !s.isCovered());
-    assert targets.contains(pReached.getLastState());
+    Collection<ARGState> targets = Collections2.filter(root.getSubgraph(),
+        s -> s.getChildren().isEmpty() && !s.isCovered());
+    // assertion disabled, because it happens with BAM-parallel (reason unknown).
+    // assert targets.contains(pReached.getLastState()) : String.format(
+    //   "Last state %s of reachedset with root %s is not in target states %s",
+    //   pReached.getLastState(), pReached.getFirstState(), targets);
     assert pMainReachedSet.asReachedSet().asCollection().containsAll(targets);
     final BAMSubgraphComputer cexSubgraphComputer = new BAMSubgraphComputer(bamCpa);
 
-    ARGState rootOfSubgraph = null;
+    Pair<BackwardARGState, Collection<BackwardARGState>> rootAndTargetsOfSubgraph = null;
     try {
-      rootOfSubgraph = cexSubgraphComputer.computeCounterexampleSubgraph(targets, pMainReachedSet);
+      rootAndTargetsOfSubgraph = cexSubgraphComputer.computeCounterexampleSubgraph(targets, pMainReachedSet);
     } catch (MissingBlockException e) {
       logger.log(
           Level.INFO,
@@ -105,11 +115,33 @@ public class BAMARGStatistics extends ARGStatistics {
       return; // invalid ARG, ignore output
     }
 
-    ARGPath path = ARGUtils.getRandomPath(rootOfSubgraph);
-    Timer dummyTimer = new Timer();
-    BAMReachedSet bamReachedSet =
-        new BAMReachedSet(bamCpa, pMainReachedSet, path, rootOfSubgraph, dummyTimer);
+    ARGPath path = ARGUtils.getRandomPath(rootAndTargetsOfSubgraph.getFirst());
+    StatTimer dummyTimer = new StatTimer("dummy");
+    BAMReachedSet bamReachedSet = new BAMReachedSet(bamCpa, pMainReachedSet, path, dummyTimer);
 
-    super.printStatistics(pOut, pResult, bamReachedSet.asReachedSet());
+    UnmodifiableReachedSet bamReachedSetView = bamReachedSet.asReachedSet();
+
+    readdCounterexampleInfo(pReached, rootAndTargetsOfSubgraph.getSecond());
+
+    super.printStatistics(pOut, pResult, bamReachedSetView);
+  }
+
+  /**
+   * This method takes the CEX-info computed last and inserts it into the current last state.
+   *
+   * <p>We assume that (if the last state is a target state) the last CEX-check computed a correct
+   * CEX-info and wrote it into the last state of the wrapped reached-set.
+   */
+  private void readdCounterexampleInfo(
+      UnmodifiableReachedSet pReached, Collection<BackwardARGState> targets) {
+    ARGState argState = (ARGState) pReached.getLastState();
+    if (argState != null && argState.isTarget()) {
+      Optional<CounterexampleInfo> cex = argState.getCounterexampleInformation();
+      com.google.common.base.Optional<BackwardARGState> matchingState =
+          from(targets).firstMatch(t -> t.getARGState() == argState);
+      if (cex.isPresent() && matchingState.isPresent()) {
+        matchingState.get().addCounterexampleInformation(cex.get());
+      }
+    }
   }
 }

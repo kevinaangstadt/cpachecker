@@ -23,24 +23,29 @@
  */
 package org.sosy_lab.cpachecker.core.counterexample;
 
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ForwardingList;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.Multimap;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
-import javax.annotation.Nullable;
 import org.sosy_lab.cpachecker.cfa.ast.AExpressionStatement;
 import org.sosy_lab.cpachecker.cfa.model.CFAEdge;
 import org.sosy_lab.cpachecker.core.counterexample.ConcreteStatePath.ConcreteStatePathNode;
 import org.sosy_lab.cpachecker.core.counterexample.ConcreteStatePath.IntermediateConcreteState;
 import org.sosy_lab.cpachecker.core.counterexample.ConcreteStatePath.SingleConcreteState;
+import org.sosy_lab.cpachecker.core.interfaces.ConfigurableProgramAnalysis;
+import org.sosy_lab.cpachecker.core.interfaces.ConfigurableProgramAnalysisWithConcreteCex;
 import org.sosy_lab.cpachecker.cpa.arg.ARGPath;
 import org.sosy_lab.cpachecker.cpa.arg.ARGPath.PathIterator;
 import org.sosy_lab.cpachecker.cpa.arg.ARGState;
+import org.sosy_lab.cpachecker.util.CPAs;
 import org.sosy_lab.cpachecker.util.predicates.PathChecker;
 
 
@@ -85,9 +90,8 @@ public class CFAPathWithAssumptions extends ForwardingList<CFAEdgeWithAssumption
     return true;
   }
 
-  @Nullable
-  public Map<ARGState, CFAEdgeWithAssumptions> getExactVariableValues(ARGPath pPath) {
-    Map<ARGState, CFAEdgeWithAssumptions> result = new HashMap<>();
+  public Multimap<ARGState, CFAEdgeWithAssumptions> getExactVariableValues(ARGPath pPath) {
+    Multimap<ARGState, CFAEdgeWithAssumptions> result = HashMultimap.create();
 
     PathIterator pathIterator = pPath.fullPathIterator();
     int multiEdgeOffset = 0;
@@ -98,14 +102,16 @@ public class CFAPathWithAssumptions extends ForwardingList<CFAEdgeWithAssumption
 
       if (!edgeWithAssignment.getCFAEdge().equals(argPathEdge)) {
         // path is not equivalent
-        return null;
+        return ImmutableMultimap.of();
       }
 
+      final ARGState abstractState;
       if (pathIterator.isPositionWithState()) {
-        result.put(pathIterator.getAbstractState(), edgeWithAssignment);
+        abstractState = pathIterator.getAbstractState();
       } else {
-        result.put(pathIterator.getPreviousAbstractState(), edgeWithAssignment);
+        abstractState = pathIterator.getPreviousAbstractState();
       }
+      result.put(abstractState, edgeWithAssignment);
 
       pathIterator.advance();
     }
@@ -198,10 +204,10 @@ public class CFAPathWithAssumptions extends ForwardingList<CFAEdgeWithAssumption
     }
   }
 
-  public CFAPathWithAssumptions mergePaths(CFAPathWithAssumptions pOtherPath) {
+  public Optional<CFAPathWithAssumptions> mergePaths(CFAPathWithAssumptions pOtherPath) {
 
     if (pOtherPath.size() != this.size()) {
-      return this;
+      return Optional.empty();
     }
 
     List<CFAEdgeWithAssumptions> result = new ArrayList<>(size());
@@ -209,13 +215,45 @@ public class CFAPathWithAssumptions extends ForwardingList<CFAEdgeWithAssumption
 
     for (CFAEdgeWithAssumptions edge : this) {
       CFAEdgeWithAssumptions other = path2Iterator.next();
-      if (edge.getCFAEdge().equals(other.getCFAEdge())) {
-        return this;
+      if (!edge.getCFAEdge().equals(other.getCFAEdge())) {
+        return Optional.empty();
       }
       CFAEdgeWithAssumptions resultEdge = edge.mergeEdge(other);
       result.add(resultEdge);
     }
 
-    return new CFAPathWithAssumptions(result);
+    return Optional.of(new CFAPathWithAssumptions(result));
+  }
+
+  public static CFAPathWithAssumptions of(
+      ARGPath pPath,
+      ConfigurableProgramAnalysis pCPA,
+      AssumptionToEdgeAllocator pAssumptionToEdgeAllocator) {
+
+    FluentIterable<ConfigurableProgramAnalysisWithConcreteCex> cpas =
+        CPAs.asIterable(pCPA).filter(ConfigurableProgramAnalysisWithConcreteCex.class);
+
+    Optional<CFAPathWithAssumptions> result = Optional.empty();
+
+    for (ConfigurableProgramAnalysisWithConcreteCex wrappedCpa : cpas) {
+      ConcreteStatePath path = wrappedCpa.createConcreteStatePath(pPath);
+      CFAPathWithAssumptions cexPath = CFAPathWithAssumptions.of(path, pAssumptionToEdgeAllocator);
+
+      if (result.isPresent()) {
+        result = result.get().mergePaths(cexPath);
+        // If there were conflicts during merging, stop
+        if (!result.isPresent()) {
+          break;
+        }
+      } else {
+        result = Optional.of(cexPath);
+      }
+    }
+
+    if (!result.isPresent()) {
+      return CFAPathWithAssumptions.empty();
+    } else {
+      return result.get();
+    }
   }
 }
