@@ -501,7 +501,7 @@ class AssignmentHandler {
 
     if (lvalueType instanceof CArrayType && !isStringType(lvalueType)) {
       if (((CArrayType) lvalueType).getType() instanceof CSimpleType
-          && ((CSimpleType) (((CArrayType) lvalueType).getType())).getType() == CBasicType.CHAR) {
+          && ((CSimpleType) ((CArrayType) lvalueType).getType()).getType() == CBasicType.CHAR) {
         System.out.println("Here!");
       }
       return makeDestructiveArrayAssignment(
