@@ -115,6 +115,7 @@ import org.sosy_lab.cpachecker.util.predicates.smt.BooleanFormulaManagerView;
 import org.sosy_lab.cpachecker.util.predicates.smt.FormulaManagerView;
 import org.sosy_lab.cpachecker.util.predicates.smt.FunctionFormulaManagerView;
 import org.sosy_lab.cpachecker.util.predicates.smt.IntegerFormulaManagerView;
+import org.sosy_lab.cpachecker.util.predicates.smt.StringFormulaManagerView;
 import org.sosy_lab.cpachecker.util.variableclassification.VariableClassification;
 import org.sosy_lab.cpachecker.util.variableclassification.VariableClassificationBuilder;
 import org.sosy_lab.java_smt.api.BitvectorFormula;
@@ -185,6 +186,7 @@ public class CtoFormulaConverter {
   private final IntegerFormulaManagerView nfmgr;
   private final BitvectorFormulaManagerView efmgr;
   final FunctionFormulaManagerView ffmgr;
+  protected final StringFormulaManagerView sfmgr;
   protected final LogManagerWithoutDuplicates logger;
   protected final ShutdownNotifier shutdownNotifier;
 
@@ -215,6 +217,7 @@ public class CtoFormulaConverter {
     this.nfmgr = fmgr.getIntegerFormulaManager(); // NumeralMgr is only used for String-Literals, so Int or Real does not matter, however Princess only supports Int.
     this.efmgr = fmgr.getBitvectorFormulaManager();
     this.ffmgr = fmgr.getFunctionFormulaManager();
+    this.sfmgr = fmgr.getStringFormulaManager();
     this.logger = new LogManagerWithoutDuplicates(logger);
     this.shutdownNotifier = pShutdownNotifier;
 
@@ -315,9 +318,13 @@ public class CtoFormulaConverter {
           return FormulaType.getSinglePrecisionFloatingPointType();
         case DOUBLE:
           return FormulaType.getDoublePrecisionFloatingPointType();
+        case CHAR:
+          return FormulaType.getStringType();
         default:
           break;
       }
+    } else if (isStringType(type)) {
+      return FormulaType.getStringType();
     }
 
     int bitSize = typeHandler.getBitSizeof(type);
@@ -930,6 +937,28 @@ public class CtoFormulaConverter {
   private static boolean isFloatingPointType(final CType pType) {
     if (pType instanceof CSimpleType) {
       return ((CSimpleType)pType).getType().isFloatingPointType();
+    }
+    return false;
+  }
+
+  /**
+   * This is duplicated code!!! (it's in ..pointeraliasing.CTypeUtils
+   *
+   * @param pType
+   * @return
+   */
+  static boolean isStringType(CType pType) {
+    CType con = pType.getCanonicalType();
+    if (con instanceof CSimpleType) {
+      return ((CSimpleType) pType).getType() == CBasicType.CHAR;
+    }
+    if (con instanceof CArrayType) {
+      con = ((CArrayType) con).asPointerType();
+    }
+    if (con instanceof CPointerType) {
+      if (((CPointerType) con).getType() instanceof CSimpleType) {
+        return ((CSimpleType) ((CPointerType) con).getType()).getType() == CBasicType.CHAR;
+      }
     }
     return false;
   }

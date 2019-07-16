@@ -30,17 +30,19 @@ import org.sosy_lab.common.collect.PathCopyingPersistentTreeMap;
 import org.sosy_lab.cpachecker.cfa.ast.c.CParameterDeclaration;
 import org.sosy_lab.cpachecker.cfa.ast.c.CSimpleDeclaration;
 import org.sosy_lab.cpachecker.cfa.types.c.CArrayType;
+import org.sosy_lab.cpachecker.cfa.types.c.CBasicType;
 import org.sosy_lab.cpachecker.cfa.types.c.CComplexType.ComplexTypeKind;
 import org.sosy_lab.cpachecker.cfa.types.c.CCompositeType;
 import org.sosy_lab.cpachecker.cfa.types.c.CCompositeType.CCompositeTypeMemberDeclaration;
 import org.sosy_lab.cpachecker.cfa.types.c.CFunctionType;
 import org.sosy_lab.cpachecker.cfa.types.c.CPointerType;
+import org.sosy_lab.cpachecker.cfa.types.c.CSimpleType;
 import org.sosy_lab.cpachecker.cfa.types.c.CType;
 
 /**
  * Utility class with helper methods for CTypes.
  */
-class CTypeUtils {
+public class CTypeUtils {
 
   private CTypeUtils() { }
 
@@ -167,7 +169,24 @@ class CTypeUtils {
   }
 
   static boolean isSimpleType(final CType type) {
-    return !(type instanceof CArrayType) && !(type instanceof CCompositeType);
+    return isStringType(type)
+        || (!(type instanceof CArrayType) && !(type instanceof CCompositeType));
+  }
+
+  static boolean isStringType(final CType pType) {
+    CType con = pType.getCanonicalType();
+    if (con instanceof CSimpleType) {
+      return ((CSimpleType) pType).getType() == CBasicType.CHAR;
+    }
+    if (con instanceof CArrayType) {
+      con = ((CArrayType) con).asPointerType();
+    }
+    if (con instanceof CPointerType) {
+      if (((CPointerType) con).getType() instanceof CSimpleType) {
+        return ((CSimpleType) ((CPointerType) con).getType()).getType() == CBasicType.CHAR;
+      }
+    }
+    return false;
   }
 
   /**

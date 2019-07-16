@@ -1444,7 +1444,8 @@ public class AssumptionToEdgeAllocator {
       String valueStr = pValue.toString();
 
       if (valueStr.matches("((-)?)\\d*")) {
-        BigInteger integerValue = new BigInteger(valueStr);
+        // hack to deal with empty strings for now
+        BigInteger integerValue = new BigInteger(valueStr.length() == 0 ? "0" : valueStr);
 
         return handlePotentialIntegerOverflow(integerValue, pType);
       } else {

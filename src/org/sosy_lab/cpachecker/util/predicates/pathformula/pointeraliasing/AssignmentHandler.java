@@ -29,6 +29,7 @@ import static org.sosy_lab.cpachecker.util.predicates.pathformula.pointeraliasin
 import static org.sosy_lab.cpachecker.util.predicates.pathformula.pointeraliasing.CTypeUtils.checkIsSimplified;
 import static org.sosy_lab.cpachecker.util.predicates.pathformula.pointeraliasing.CTypeUtils.implicitCastToPointer;
 import static org.sosy_lab.cpachecker.util.predicates.pathformula.pointeraliasing.CTypeUtils.isSimpleType;
+import static org.sosy_lab.cpachecker.util.predicates.pathformula.pointeraliasing.CTypeUtils.isStringType;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableSet;
@@ -53,6 +54,7 @@ import org.sosy_lab.cpachecker.cfa.ast.c.CLeftHandSide;
 import org.sosy_lab.cpachecker.cfa.ast.c.CRightHandSide;
 import org.sosy_lab.cpachecker.cfa.model.CFAEdge;
 import org.sosy_lab.cpachecker.cfa.types.c.CArrayType;
+import org.sosy_lab.cpachecker.cfa.types.c.CBasicType;
 import org.sosy_lab.cpachecker.cfa.types.c.CComplexType.ComplexTypeKind;
 import org.sosy_lab.cpachecker.cfa.types.c.CCompositeType;
 import org.sosy_lab.cpachecker.cfa.types.c.CCompositeType.CCompositeTypeMemberDeclaration;
@@ -497,7 +499,11 @@ class AssignmentHandler {
         !useOldSSAIndices || updatedRegions == null,
         "With old SSA indices returning updated regions does not make sense");
 
-    if (lvalueType instanceof CArrayType) {
+    if (lvalueType instanceof CArrayType && !isStringType(lvalueType)) {
+      if (((CArrayType) lvalueType).getType() instanceof CSimpleType
+          && ((CSimpleType) (((CArrayType) lvalueType).getType())).getType() == CBasicType.CHAR) {
+        System.out.println("Here!");
+      }
       return makeDestructiveArrayAssignment(
           (CArrayType) lvalueType, rvalueType, lvalue, rvalue, useOldSSAIndices, updatedRegions);
 

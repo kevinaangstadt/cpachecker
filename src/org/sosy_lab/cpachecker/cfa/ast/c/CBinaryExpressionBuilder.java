@@ -26,6 +26,7 @@ package org.sosy_lab.cpachecker.cfa.ast.c;
 import static org.sosy_lab.cpachecker.cfa.types.c.CBasicType.DOUBLE;
 import static org.sosy_lab.cpachecker.cfa.types.c.CBasicType.FLOAT;
 import static org.sosy_lab.cpachecker.cfa.types.c.CBasicType.INT;
+import static org.sosy_lab.cpachecker.cfa.types.c.CTypes.isCharacterType;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Sets;
@@ -443,6 +444,15 @@ public class CBinaryExpressionBuilder {
    * @return common simple type for t1 and t2
    */
   private CSimpleType getCommonSimpleTypeForBinaryOperation(CSimpleType t1, CSimpleType t2) {
+
+    /*
+     * Special handling for strings
+     */
+    if (isCharacterType(t1)) {
+      return t1;
+    } else if (isCharacterType(t2)) {
+      return t2;
+    }
 
     assert t1.equals(t1.getCanonicalType()) && t2.equals(t2.getCanonicalType());
 

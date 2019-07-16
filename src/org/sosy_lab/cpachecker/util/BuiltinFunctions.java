@@ -46,7 +46,8 @@ public class BuiltinFunctions {
     return pFunctionName.startsWith("__builtin_")
         || pFunctionName.equals(FREE)
         || matchesStrlen(pFunctionName)
-        || BuiltinFloatFunctions.isBuiltinFloatFunction(pFunctionName);
+        || BuiltinFloatFunctions.isBuiltinFloatFunction(pFunctionName)
+        || BuiltinStringFunctions.isBuiltinStringFunction(pFunctionName);
   }
 
   /**

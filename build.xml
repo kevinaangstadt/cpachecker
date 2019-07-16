@@ -76,6 +76,7 @@
         <ant antfile="src/org/sosy_lab/cpachecker/cpa/automaton/AutomatonBuild.xml" target="clean" inheritAll="false"/>
         <ant antfile="src/org/sosy_lab/cpachecker/util/predicates/precisionConverter/Parser.xml" target="clean" inheritAll="false"/>
         <ant antfile="src/org/sosy_lab/cpachecker/util/ltl/AntlrParser.xml" target="clean" inheritAll="false"/>
+    	<ant antfile="src/org/sosy_lab/cpachecker/util/regex/AntlrParser.xml" target="clean" inheritAll="false"/>
     </target>
 
     <target name="build" depends="-warn-factorypath, build-project, build-documentation" description="Build"/>
@@ -109,6 +110,8 @@
             <ant antfile="src/org/sosy_lab/cpachecker/util/predicates/precisionConverter/Parser.xml" inheritAll="false"/>
             <echo message="Generate antlr4 parser if necessary" level="info"/>
             <ant antfile="src/org/sosy_lab/cpachecker/util/ltl/AntlrParser.xml" inheritAll="false"/>
+            <echo message="Generating antlr4 parser for regex if necessary" level="info"/>
+    	    <ant antfile="src/org/sosy_lab/cpachecker/util/regex/AntlrParser.xml" inheritAll="false"/>
     </target>
 
     <target name="build-dependencies" depends="init, resolve-dependencies, build-subprojects"/>

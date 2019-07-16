@@ -87,6 +87,7 @@ import org.sosy_lab.java_smt.api.NumeralFormula.RationalFormula;
 import org.sosy_lab.java_smt.api.NumeralFormulaManager;
 import org.sosy_lab.java_smt.api.QuantifiedFormulaManager.Quantifier;
 import org.sosy_lab.java_smt.api.SolverException;
+import org.sosy_lab.java_smt.api.StringFormula;
 import org.sosy_lab.java_smt.api.Tactic;
 import org.sosy_lab.java_smt.api.visitors.BooleanFormulaVisitor;
 import org.sosy_lab.java_smt.api.visitors.DefaultBooleanFormulaVisitor;
@@ -119,6 +120,7 @@ public class FormulaManagerView {
     RATIONAL,
     BITVECTOR,
     FLOAT,
+    STRING,
     ;
 
     String description() {
@@ -141,6 +143,7 @@ public class FormulaManagerView {
   private final FunctionFormulaManagerView functionFormulaManager;
   private @Nullable QuantifiedFormulaManagerView quantifiedFormulaManager;
   private @Nullable ArrayFormulaManagerView arrayFormulaManager;
+  private @Nullable StringFormulaManagerView stringFormulaManager;
 
   @Option(secure=true, name = "formulaDumpFilePattern", description = "where to dump interpolation and abstraction problems (format string)")
   @FileOption(FileOption.Type.OUTPUT_FILE)
@@ -215,6 +218,13 @@ public class FormulaManagerView {
           new ArrayFormulaManagerView(wrappingHandler, manager.getArrayFormulaManager());
     } catch (UnsupportedOperationException e) {
       // do nothing, solver does not support arrays
+    }
+
+    try {
+      stringFormulaManager =
+          new StringFormulaManagerView(wrappingHandler, manager.getStringFormulaManager());
+    } catch (UnsupportedOperationException e) {
+      // do nothing, solver does not support strings
     }
   }
 
@@ -370,6 +380,8 @@ public class FormulaManagerView {
     } else if (formulaType.isArrayType()) {
       FormulaType.ArrayFormulaType<?,?> arrayType = (FormulaType.ArrayFormulaType<?,?>) formulaType;
       t = arrayFormulaManager.makeArray(name, arrayType.getIndexType(), arrayType.getElementType());
+    } else if (formulaType.isStringType()) {
+      t = stringFormulaManager.makeVariable(name);
     } else {
       throw new IllegalArgumentException("Unknown formula type");
     }
@@ -393,6 +405,8 @@ public class FormulaManagerView {
       t = bitvectorFormulaManager.makeBitvector((FormulaType<BitvectorFormula>)formulaType, value);
     } else if (formulaType.isFloatingPointType()) {
       t = floatingPointFormulaManager.makeNumber(value, (FormulaType.FloatingPointType)formulaType);
+    } else if (formulaType.isStringType()) {
+      t = stringFormulaManager.makeString(String.format("\\x%02X", value));
     } else {
       throw new IllegalArgumentException("Not supported interface");
     }
@@ -472,6 +486,8 @@ public class FormulaManagerView {
       t = bitvectorFormulaManager.add((BitvectorFormula)pF1, (BitvectorFormula)pF2);
     } else if (pF1 instanceof FloatingPointFormula && pF2 instanceof FloatingPointFormula) {
       t = floatingPointFormulaManager.add((FloatingPointFormula)pF1, (FloatingPointFormula)pF2);
+    } else if (pF1 instanceof StringFormula && pF2 instanceof BitvectorFormula) {
+      t = stringFormulaManager.charAt((StringFormula) pF1, bitvectorFormulaManager.toIntegerFormula((BitvectorFormula) pF2, false));
     } else {
       throw new IllegalArgumentException("Not supported interface");
     }
@@ -751,6 +767,8 @@ public class FormulaManagerView {
       @SuppressWarnings("rawtypes")
       ArrayFormula rhs = (ArrayFormula) pRhs;
       t = arrayFormulaManager.equivalence((ArrayFormula<?, ?>) pLhs, rhs);
+    } else if (pLhs instanceof StringFormula && pRhs instanceof StringFormula) {
+      t = stringFormulaManager.equal((StringFormula) pLhs, (StringFormula) pRhs);
     } else {
       throw new IllegalArgumentException("Not supported interface");
     }
@@ -912,6 +930,13 @@ public class FormulaManagerView {
       throw new UnsupportedOperationException("Solver does not support arrays");
     }
     return arrayFormulaManager;
+  }
+
+  public StringFormulaManagerView getStringFormulaManager() {
+    if (stringFormulaManager == null) {
+      throw new UnsupportedOperationException("Solver does not support strings");
+    }
+    return stringFormulaManager;
   }
 
   public <T extends Formula> FormulaType<T> getFormulaType(T pFormula) {

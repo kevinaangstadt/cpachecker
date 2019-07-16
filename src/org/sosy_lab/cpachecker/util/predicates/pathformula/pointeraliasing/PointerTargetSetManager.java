@@ -76,6 +76,7 @@ import org.sosy_lab.java_smt.api.ArrayFormula;
 import org.sosy_lab.java_smt.api.BooleanFormula;
 import org.sosy_lab.java_smt.api.Formula;
 import org.sosy_lab.java_smt.api.FormulaType;
+import org.sosy_lab.java_smt.api.FormulaType.StringType;
 
 /**
  * A manager for pointer target sets.
@@ -175,7 +176,8 @@ class PointerTargetSetManager {
       final int ssaIndex,
       final I address) {
     final FormulaType<I> addressType = formulaManager.getFormulaType(address);
-    checkArgument(typeHandler.getPointerType().equals(addressType));
+    checkArgument(
+        typeHandler.getPointerType().equals(addressType) || addressType instanceof StringType);
     if (options.useArraysForHeap()) {
       final ArrayFormula<I, V> arrayFormula =
           afmgr.makeArray(targetName, ssaIndex, addressType, targetType);
@@ -226,7 +228,8 @@ class PointerTargetSetManager {
     FormulaType<E> targetType = formulaManager.getFormulaType(value);
     checkArgument(pTargetType.equals(targetType));
     FormulaType<I> addressType = formulaManager.getFormulaType(address);
-    checkArgument(typeHandler.getPointerType().equals(addressType));
+    checkArgument(
+        typeHandler.getPointerType().equals(addressType));
     if (options.useArraysForHeap()) {
       final ArrayFormula<I, E> oldFormula =
           afmgr.makeArray(

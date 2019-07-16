@@ -37,12 +37,16 @@ import org.sosy_lab.cpachecker.cfa.ast.c.CSimpleDeclaration;
 import org.sosy_lab.cpachecker.cfa.ast.c.CUnaryExpression;
 import org.sosy_lab.cpachecker.cfa.ast.c.DefaultCExpressionVisitor;
 import org.sosy_lab.cpachecker.cfa.model.CFAEdge;
+import org.sosy_lab.cpachecker.cfa.types.c.CPointerType;
+import org.sosy_lab.cpachecker.cfa.types.c.CType;
 import org.sosy_lab.cpachecker.exceptions.UnrecognizedCodeException;
 import org.sosy_lab.cpachecker.util.predicates.pathformula.ErrorConditions;
 import org.sosy_lab.cpachecker.util.predicates.pathformula.SSAMap.SSAMapBuilder;
 import org.sosy_lab.cpachecker.util.predicates.pathformula.pointeraliasing.PointerTargetSetBuilder;
 import org.sosy_lab.java_smt.api.BitvectorFormula;
 import org.sosy_lab.java_smt.api.Formula;
+import org.sosy_lab.java_smt.api.NumeralFormula.IntegerFormula;
+import org.sosy_lab.java_smt.api.StringFormula;
 
 class LvalueVisitor extends DefaultCExpressionVisitor<Formula, UnrecognizedCodeException> {
 
@@ -138,6 +142,46 @@ class LvalueVisitor extends DefaultCExpressionVisitor<Formula, UnrecognizedCodeE
 
   @Override
   public Formula visit(CArraySubscriptExpression pE) throws UnrecognizedCodeException {
+    final CType exp_type = pE.getExpressionType();
+    if (CtoFormulaConverter.isStringType(exp_type)) {
+      final CExpression arrayExpression = pE.getArrayExpression();
+      final CExpression subscript = pE.getSubscriptExpression();
+
+      String var = CtoFormulaConverter.exprToVarName(arrayExpression, function);
+      // FIXME only allows a single assignment
+      Formula base = conv.makeVariable(var, arrayExpression.getExpressionType(), ssa);
+
+      final CType subscriptType = subscript.getExpressionType();
+      Formula index =
+          conv.makeCast(
+              subscriptType,
+                                          CPointerType.POINTER_TO_VOID,
+              subscript.accept(
+                  new ExpressionToFormulaVisitor(
+                      conv,
+                      conv.fmgr,
+                      edge,
+                      function,
+                      ssa,
+                      constraints)),
+                                          constraints,
+                                          edge);
+      // try to make index an integer formula
+      if (index instanceof BitvectorFormula) {
+        // FIXME is this always unsigned?
+        index =
+            conv.fmgr.getBitvectorFormulaManager()
+                .toIntegerFormula((BitvectorFormula) index, false);
+      }
+
+      assert base instanceof StringFormula : base + "should be of type StringFormula";
+      assert index instanceof IntegerFormula : index + "should be of type IntegerFormula";
+      return conv.sfmgr.charAt((StringFormula) base, (IntegerFormula) index);
+
+    }
+
     return giveUpAndJustMakeVariable(pE);
   }
+
+
 }

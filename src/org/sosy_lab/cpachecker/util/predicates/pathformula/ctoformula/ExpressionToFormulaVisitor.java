@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.function.BiFunction;
 import java.util.logging.Level;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.sosy_lab.cpachecker.cfa.ast.c.CArraySubscriptExpression;
 import org.sosy_lab.cpachecker.cfa.ast.c.CBinaryExpression;
 import org.sosy_lab.cpachecker.cfa.ast.c.CBinaryExpression.BinaryOperator;
 import org.sosy_lab.cpachecker.cfa.ast.c.CCastExpression;
@@ -63,16 +64,25 @@ import org.sosy_lab.cpachecker.cfa.types.c.CTypes;
 import org.sosy_lab.cpachecker.exceptions.UnrecognizedCodeException;
 import org.sosy_lab.cpachecker.exceptions.UnsupportedCodeException;
 import org.sosy_lab.cpachecker.util.BuiltinFloatFunctions;
+import org.sosy_lab.cpachecker.util.BuiltinStringFunctions;
 import org.sosy_lab.cpachecker.util.predicates.pathformula.SSAMap.SSAMapBuilder;
 import org.sosy_lab.cpachecker.util.predicates.smt.BooleanFormulaManagerView;
 import org.sosy_lab.cpachecker.util.predicates.smt.FloatingPointFormulaManagerView;
 import org.sosy_lab.cpachecker.util.predicates.smt.FormulaManagerView;
+import org.sosy_lab.cpachecker.util.regex.RegexParseException;
+import org.sosy_lab.cpachecker.util.regex.RegexParser;
+import org.sosy_lab.cpachecker.util.regex.formulas.RegexOperator;
+import org.sosy_lab.java_smt.api.BitvectorFormula;
 import org.sosy_lab.java_smt.api.BooleanFormula;
 import org.sosy_lab.java_smt.api.FloatingPointFormula;
 import org.sosy_lab.java_smt.api.FloatingPointRoundingMode;
 import org.sosy_lab.java_smt.api.Formula;
 import org.sosy_lab.java_smt.api.FormulaType;
+import org.sosy_lab.java_smt.api.FormulaType.BitvectorType;
 import org.sosy_lab.java_smt.api.FormulaType.FloatingPointType;
+import org.sosy_lab.java_smt.api.NumeralFormula.IntegerFormula;
+import org.sosy_lab.java_smt.api.RegexFormula;
+import org.sosy_lab.java_smt.api.StringFormula;
 
 public class ExpressionToFormulaVisitor
     extends DefaultCExpressionVisitor<Formula, UnrecognizedCodeException>
@@ -543,6 +553,49 @@ public class ExpressionToFormulaVisitor
       default:
         return visitDefault(tIdExp);
     }
+  }
+
+  @Override
+  public Formula visit(CArraySubscriptExpression pE) throws UnrecognizedCodeException {
+    final CType exp_type = pE.getExpressionType();
+    if (CtoFormulaConverter.isStringType(exp_type)) {
+      final CExpression arrayExpression = pE.getArrayExpression();
+      final CExpression subscript = pE.getSubscriptExpression();
+
+      String var = CtoFormulaConverter.exprToVarName(arrayExpression, function);
+      Formula base = conv.makeVariable(var, arrayExpression.getExpressionType(), ssa);
+
+      final CType subscriptType = subscript.getExpressionType();
+      Formula index =
+          conv.makeCast(
+              subscriptType,
+              CPointerType.POINTER_TO_VOID,
+              subscript.accept(
+                  new ExpressionToFormulaVisitor(
+                      conv,
+                      conv.fmgr,
+                      edge,
+                      function,
+                      ssa,
+                      constraints)),
+              constraints,
+              edge);
+      // try to make index an integer formula
+      if (index instanceof BitvectorFormula) {
+        // FIXME is this always unsigned?
+        index =
+            conv.fmgr.getBitvectorFormulaManager()
+                .toIntegerFormula((BitvectorFormula) index, false);
+      }
+
+      assert base instanceof StringFormula : base + "should be of type StringFormula";
+      assert index instanceof IntegerFormula : index + "should be of type IntegerFormula";
+      return conv.fmgr.getStringFormulaManager()
+          .charAt((StringFormula) base, (IntegerFormula) index);
+
+    }
+    return visitDefault(pE);
+
   }
 
   private Formula handleSizeof(CExpression pExp, CType pCType) {
@@ -1020,6 +1073,51 @@ public class ExpressionToFormulaVisitor
 
         if (result != null) {
           return result;
+        }
+      } else if (BuiltinStringFunctions.matchesInRegex(functionName)) {
+        if (parameters.size() == 2) {
+          CExpression strExpression = parameters.get(0);
+          CExpression reExpression = parameters.get(1);
+
+          // make sure that the types are correct
+          if (conv.getFormulaTypeFromCType(strExpression.getExpressionType()).isStringType()) {
+            // the first one should be a string variable or constant
+
+            if (reExpression instanceof CStringLiteralExpression) {
+              // the second is the regex and should be a string literal
+              String re = ((CStringLiteralExpression) reExpression).getContentString();
+              try {
+                RegexOperator reOp = RegexParser.parseRegex(re);
+                conv.logger.logOnce(Level.INFO, "Regex: %s", reOp.toString());
+                RegexFormula reFormula = reOp.toFormula(conv.sfmgr);
+
+                StringFormula strFormula = (StringFormula) toFormula(strExpression);
+
+                BooleanFormula match = conv.sfmgr.regexIn(strFormula, reFormula);
+
+                FormulaType<?> retT = conv.getFormulaTypeFromCType(e.getExpressionType());
+                return conv.ifTrueThenOneElseZero(retT, match);
+              } catch (RegexParseException e1) {
+                conv.logger.logfOnce(Level.WARNING, "%s", e1.getMessage());
+                throw new UnrecognizedCodeException(e1.getMessage(), edge, e);
+              }
+
+            }
+          }
+        }
+      } else if (BuiltinStringFunctions.matchesStrlen(functionName)) {
+        if (parameters.size() == 1) {
+          CExpression strExpression = parameters.get(0);
+          if (conv.getFormulaTypeFromCType(strExpression.getExpressionType()).isStringType()) {
+            StringFormula strFormula = (StringFormula) toFormula(strExpression);
+            IntegerFormula len = conv.sfmgr.length(strFormula);
+            FormulaType<?> retT = conv.getFormulaTypeFromCType(e.getExpressionType());
+            if (retT instanceof BitvectorType) {
+              return conv.fmgr.getBitvectorFormulaManager()
+                  .makeBitvector(((BitvectorType) retT).getSize(), len);
+            }
+            return len;
+          }
         }
       } else if (!CtoFormulaConverter.PURE_EXTERNAL_FUNCTIONS.contains(functionName)) {
         if (parameters.isEmpty()) {
