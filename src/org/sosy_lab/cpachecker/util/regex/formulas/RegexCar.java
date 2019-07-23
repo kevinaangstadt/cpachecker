@@ -49,7 +49,7 @@ public class RegexCar implements RegexOperator {
 
   @Override
   public String toString() {
-    return String.format("0x%02X", this.hexVal);
+    return String.format("\\x%02X", this.hexVal);
   }
 
   @Override
