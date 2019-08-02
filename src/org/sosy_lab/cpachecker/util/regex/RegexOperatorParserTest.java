@@ -35,34 +35,23 @@ import org.sosy_lab.cpachecker.util.regex.formulas.RegexUnion;
 
 public class RegexOperatorParserTest {
 
-  @Test
-  public void test_parse() throws RegexParseException {
-    List<String> in =
-        ImmutableList
-            .of(
-            "NULL",
-            "eps",
-            "0x62",
-                "(0x62)|(0x61)",
-            "(0x62)*",
-                "(0x62)+",
-                "(0x62)(0x61)",
-                // "(((0x62)((0x61)(0x61)))|((((0x61)((0x61)(0x61)))|((((0x62)((0x62)(0x61)))|((0x61)((0x62)(((eps)|(((0x62)|(0x61))))))))))))((0x00)+)"
-                "(((0x62)((0x61)(0x61)))|(((0x61)((0x61)(0x61)))|(((0x62)((0x62)(0x61)))|((0x61)((0x62)((eps)|((0x62)|(0x61))))))))((0x00)+)");
-
-    List<RegexOperator> out =
-        ImmutableList.of(
-            new RegexNull(),
-            new RegexEps(),
-            new RegexCar(0x62),
-            new RegexUnion(new RegexCar(0x62), new RegexCar(0x61)),
-            new RegexStar(new RegexCar(0x62)),
-            new RegexPlus(new RegexCar(0x62)),
-            new RegexConcat(new RegexCar(0x62), new RegexCar(0x61)),
-            new RegexConcat(
+  private static List<RegexOperator> out =
+      ImmutableList.of(
+          new RegexNull(),
+          new RegexEps(),
+          new RegexCar(0x62),
+          new RegexUnion(new RegexCar(0x62), new RegexCar(0x61)),
+          new RegexStar(new RegexCar(0x62)),
+          new RegexPlus(new RegexCar(0x62)),
+          new RegexConcat(new RegexCar(0x62), new RegexCar(0x61)),
+          new RegexConcat(
+              new RegexUnion(
+                  new RegexConcat(
+                      new RegexCar(0x62),
+                      new RegexConcat(new RegexCar(0x61), new RegexCar(0x61))),
                 new RegexUnion(
                   new RegexConcat(
-                    new RegexCar(0x62),
+                          new RegexCar(0x61),
                     new RegexConcat(
                       new RegexCar(0x61),
                       new RegexCar(0x61)
@@ -70,40 +59,67 @@ public class RegexOperatorParserTest {
                   ),
                   new RegexUnion(
                     new RegexConcat(
-                      new RegexCar(0x61),
+                              new RegexCar(0x62),
                       new RegexConcat(
-                        new RegexCar(0x61),
+                                  new RegexCar(0x62),
                         new RegexCar(0x61)
                       )
                     ),
-                    new RegexUnion(
+                          new RegexConcat(
+                              new RegexCar(0x61),
                       new RegexConcat(
                         new RegexCar(0x62),
-                        new RegexConcat(
-                          new RegexCar(0x62),
-                          new RegexCar(0x61)
-                        )
-                      ),
-                      new RegexConcat(
-                        new RegexCar(0x61),
-                        new RegexConcat(
-                          new RegexCar(0x62),
+                                  new RegexUnion(
+                                      new RegexEps(),
                           new RegexUnion(
-                            new RegexEps(),
-                            new RegexUnion(
-                              new RegexCar(0x62),
-                              new RegexCar(0x61)
-                            )
+                                          new RegexCar(0x62),
+                                          new RegexCar(0x61)
                           )
                         )
                       )
                     )
                   )
-                ),
-                new RegexPlus(
-                  new RegexCar(0x00)
                 )
-            ));
+              ),
+              new RegexPlus(new RegexCar(0x00))));
+
+  @Test
+  public void test_parse() throws RegexParseException {
+    List<String> in =
+        ImmutableList.of(
+            "NULL",
+            "eps",
+            "0x62",
+            "(0x62)|(0x61)",
+            "(0x62)*",
+            "(0x62)+",
+            "(0x62)(0x61)",
+            // "(((0x62)((0x61)(0x61)))|((((0x61)((0x61)(0x61)))|((((0x62)((0x62)(0x61)))|((0x61)((0x62)(((eps)|(((0x62)|(0x61))))))))))))((0x00)+)"
+            "(((0x62)((0x61)(0x61)))|(((0x61)((0x61)(0x61)))|(((0x62)((0x62)(0x61)))|((0x61)((0x62)((eps)|((0x62)|(0x61))))))))((0x00)+)");
+
+    for (int i = 0; i < in.size(); i++) {
+      System.out.println("=====");
+      System.out.println(in.get(i));
+      System.out.println("----");
+      System.out.println(out.get(i));
+      System.out.println("=====");
+      assertEquals(in.get(i), out.get(i), RegexParser.parseRegex(in.get(i)));
+    }
+  }
+
+  @Test
+  public void test_hex() throws RegexParseException {
+    List<String> in =
+        ImmutableList.of(
+            "NULL",
+            "eps",
+            "\\x62",
+            "(\\x62)|(\\x61)",
+            "(\\x62)*",
+            "(\\x62)+",
+            "(\\x62)(\\x61)",
+            // "(((\\x62)((\\x61)(\\x61)))|((((\\x61)((\\x61)(\\x61)))|((((\\x62)((\\x62)(\\x61)))|((\\x61)((\\x62)(((eps)|(((\\x62)|(\\x61))))))))))))((\\x00)+)"
+            "(((\\x62)((\\x61)(\\x61)))|(((\\x61)((\\x61)(\\x61)))|(((\\x62)((\\x62)(\\x61)))|((\\x61)((\\x62)((eps)|((\\x62)|(\\x61))))))))((\\x00)+)");
 
     for (int i = 0; i < in.size(); i++) {
       System.out.println("=====");

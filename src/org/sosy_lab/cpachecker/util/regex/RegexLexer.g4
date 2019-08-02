@@ -36,7 +36,7 @@ lexer grammar RegexLexer;
  RPAREN             : ')' ;
  
  // Hex values
- HEXESCAPE          : '0x' NUMBER NUMBER ;
+ HEXESCAPE          : HEXPRE NUMBER NUMBER ;
  
  // Operators
  UNION              : '|' ;
@@ -55,3 +55,4 @@ lexer grammar RegexLexer;
   * Inline functions for simpler definitions
   */
 fragment NUMBER     : [0-9] ;
+fragment HEXPRE     : [0\\]'x' ;
