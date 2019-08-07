@@ -54,5 +54,5 @@ lexer grammar RegexLexer;
  /*
   * Inline functions for simpler definitions
   */
-fragment NUMBER     : [0-9] ;
+fragment NUMBER     : [0-9a-fA-F] ;
 fragment HEXPRE     : [0\\]'x' ;

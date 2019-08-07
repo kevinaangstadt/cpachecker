@@ -202,6 +202,8 @@ public class CtoFormulaConverter {
 
   protected final Set<CVariableDeclaration> globalDeclarations = new HashSet<>();
 
+  private int derefCount;
+
   public CtoFormulaConverter(FormulaEncodingOptions pOptions, FormulaManagerView fmgr,
       MachineModel pMachineModel, Optional<VariableClassification> pVariableClassification,
       LogManager logger, ShutdownNotifier pShutdownNotifier,
@@ -222,6 +224,8 @@ public class CtoFormulaConverter {
     this.shutdownNotifier = pShutdownNotifier;
 
     this.direction = pDirection;
+
+    this.derefCount = 0;
 
     stringUfDecl = ffmgr.declareUF(
             "__string__", typeHandler.getPointerType(), FormulaType.IntegerType);
@@ -552,17 +556,20 @@ public class CtoFormulaConverter {
   }
 
   Formula makeStringLiteral(String literal) {
-    Formula result = stringLitToFormula.get(literal);
-
-    if (result == null) {
-      // generate a new string literal. We generate a new UIf
-      int n = nextStringLitIndex++;
-      result = ffmgr.callUF(
-          stringUfDecl, nfmgr.makeNumber(n));
-      stringLitToFormula.put(literal, result);
+    /*
+     * Formula result = stringLitToFormula.get(literal);
+     *
+     * if (result == null) { // generate a new string literal. We generate a new UIf int n =
+     * nextStringLitIndex++; result = ffmgr.callUF( stringUfDecl, nfmgr.makeNumber(n));
+     * stringLitToFormula.put(literal, result); }
+     *
+     * return result;
+     */
+    if (literal.charAt(0) == '\"' && literal.charAt(literal.length() - 1) == '\"') {
+      return sfmgr.makeString(literal.substring(1, literal.length() - 1));
+    } else {
+      return sfmgr.makeString(literal);
     }
-
-    return result;
   }
 
   /**
@@ -734,6 +741,10 @@ public class CtoFormulaConverter {
       return formula; // No cast required;
     }
 
+    if (isStringType(fromType) && isStringType(toType)) {
+      return formula; // No cast is required;
+    }
+
     if (fromType instanceof CFunctionType) {
       // references to functions can be seen as function pointers
       fromType = new CPointerType(false, false, fromType);
@@ -811,7 +822,8 @@ public class CtoFormulaConverter {
    * When the fromType is a signed type a bit-extension will be done,
    * on any other case it will be filled with 0 bits.
    */
-  private Formula makeSimpleCast(CType pFromCType, CType pToCType, Formula pFormula) {
+  private Formula
+      makeSimpleCast(CType pFromCType, CType pToCType, Formula pFormula) {
     checkSimpleCastArgument(pFromCType);
     checkSimpleCastArgument(pToCType);
     Predicate<CType> isSigned = t -> {
@@ -834,7 +846,16 @@ public class CtoFormulaConverter {
     if (fromType.equals(toType)) {
       ret = pFormula;
 
-    } else if (fromType.isBitvectorType() && toType.isBitvectorType()) {
+    } /*
+       * else if (fromType.isStringType() && toType.isBitvectorType()) { String tmpName =
+       * "__cpa_str_deref_tmp" + ++derefCount; BitvectorFormula tmpVar =
+       * fmgr.makeVariable(FormulaType.getBitvectorTypeWithSize(8), tmpName);
+       *
+       * ret = fmgr.makeEqual( sfmgr.unit(tmpVar), sfmgr.charAt((StringFormula) pFormula,
+       * nfmgr.makeNumber(0))); // FIXME this doesn't return the correct "type" What we need to do
+       * is just // assert this relationship and then return the variable // don't know if this is
+       * supported }
+       */ else if (fromType.isBitvectorType() && toType.isBitvectorType()) {
 
       int toSize = ((FormulaType.BitvectorType)toType).getSize();
       int fromSize = ((FormulaType.BitvectorType) fromType).getSize();
@@ -950,14 +971,20 @@ public class CtoFormulaConverter {
   static boolean isStringType(CType pType) {
     CType con = pType.getCanonicalType();
     if (con instanceof CSimpleType) {
-      return ((CSimpleType) pType).getType() == CBasicType.CHAR;
+      return ((CSimpleType) con).getType() == CBasicType.CHAR;
     }
     if (con instanceof CArrayType) {
       con = ((CArrayType) con).asPointerType();
     }
     if (con instanceof CPointerType) {
       if (((CPointerType) con).getType() instanceof CSimpleType) {
-        return ((CSimpleType) ((CPointerType) con).getType()).getType() == CBasicType.CHAR;
+        CBasicType rootType = ((CSimpleType) ((CPointerType) con).getType()).getType();
+        switch (rootType) {
+          case CHAR:
+            return true;
+          default:
+            return false;
+        }
       }
     }
     return false;

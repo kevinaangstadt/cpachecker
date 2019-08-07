@@ -19,6 +19,7 @@
  */
 package org.sosy_lab.cpachecker.util.predicates.smt;
 
+import org.sosy_lab.java_smt.api.BitvectorFormula;
 import org.sosy_lab.java_smt.api.BooleanFormula;
 import org.sosy_lab.java_smt.api.NumeralFormula.IntegerFormula;
 import org.sosy_lab.java_smt.api.RegexFormula;
@@ -42,6 +43,11 @@ public class StringFormulaManagerView extends BaseManagerView implements StringF
   @Override
   public StringFormula makeString(String pString) {
     return manager.makeString(pString);
+  }
+
+  @Override
+  public StringFormula unit(BitvectorFormula pFormula) {
+    return manager.unit(pFormula);
   }
 
   @Override
