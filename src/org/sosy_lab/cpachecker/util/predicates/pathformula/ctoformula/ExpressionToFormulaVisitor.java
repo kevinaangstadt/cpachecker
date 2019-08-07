@@ -1119,6 +1119,38 @@ public class ExpressionToFormulaVisitor
             return len;
           }
         }
+      } else if (BuiltinStringFunctions.matchesMaxStrlen(functionName)) {
+        if (parameters.size() == 2) {
+          CExpression strExpression = parameters.get(0);
+          CExpression lenExpression = parameters.get(1);
+          if (conv.getFormulaTypeFromCType(strExpression.getExpressionType()).isStringType()) {
+            StringFormula strFormula = (StringFormula) toFormula(strExpression);
+            IntegerFormula len = conv.sfmgr.length(strFormula);
+
+            if (lenExpression instanceof CIntegerLiteralExpression) {
+              BigInteger value = ((CIntegerLiteralExpression) lenExpression).getValue();
+              IntegerFormula max =
+                  conv.fmgr.getIntegerFormulaManager()
+                      .makeNumber(value);
+              BooleanFormula lte = conv.fmgr.getIntegerFormulaManager().lessOrEquals(len, max);
+
+              FormulaType<?> retT = conv.getFormulaTypeFromCType(e.getExpressionType());
+              if (retT instanceof BitvectorType) {
+                Formula tru =
+                    conv.fmgr.getBitvectorFormulaManager()
+                        .makeBitvector(((BitvectorType) retT).getSize(), 1);
+                Formula fal =
+                    conv.fmgr.getBitvectorFormulaManager()
+                        .makeBitvector(((BitvectorType) retT).getSize(), 0);
+                return conv.bfmgr.ifThenElse(lte, tru, fal);
+              }
+              return conv.bfmgr.ifThenElse(
+                  lte,
+                  conv.fmgr.getIntegerFormulaManager().makeNumber(1),
+                  conv.fmgr.getIntegerFormulaManager().makeNumber(0));
+            }
+          }
+        }
       } else if (!CtoFormulaConverter.PURE_EXTERNAL_FUNCTIONS.contains(functionName)) {
         if (parameters.isEmpty()) {
           // function of arity 0

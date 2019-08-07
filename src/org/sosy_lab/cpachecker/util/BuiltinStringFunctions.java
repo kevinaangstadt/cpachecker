@@ -28,9 +28,10 @@ import com.google.common.collect.ImmutableList;
 public class BuiltinStringFunctions {
   private static final String INREGEX = "__VERIFIER_inregex";
   private static final String STRLEN = "strlen";
+  private static final String MAXSTRLEN = "__VERIFIER_maxstrlen";
 
   private static final ImmutableList<String> possibleFunctions =
-      ImmutableList.of(INREGEX, STRLEN);
+      ImmutableList.of(INREGEX, STRLEN, MAXSTRLEN);
 
   public static boolean isBuiltinStringFunction(String pFunctionName) {
     for (String fun : possibleFunctions) {
@@ -47,5 +48,9 @@ public class BuiltinStringFunctions {
 
   public static boolean matchesStrlen(String pFunctionName) {
     return pFunctionName.equals(STRLEN);
+  }
+
+  public static boolean matchesMaxStrlen(String pFunctionName) {
+    return pFunctionName.equals(MAXSTRLEN);
   }
 }
