@@ -173,7 +173,9 @@ public class CtoFormulaConverter {
 
   private static final CharMatcher ILLEGAL_VARNAME_CHARACTERS = CharMatcher.anyOf("|\\");
 
+  @SuppressWarnings("unused")
   private final Map<String, Formula> stringLitToFormula = new HashMap<>();
+  @SuppressWarnings("unused")
   private int nextStringLitIndex = 0;
 
   final FormulaEncodingOptions options;
@@ -183,6 +185,7 @@ public class CtoFormulaConverter {
 
   protected final FormulaManagerView fmgr;
   protected final BooleanFormulaManagerView bfmgr;
+  @SuppressWarnings("unused")
   private final IntegerFormulaManagerView nfmgr;
   private final BitvectorFormulaManagerView efmgr;
   final FunctionFormulaManagerView ffmgr;
@@ -198,11 +201,13 @@ public class CtoFormulaConverter {
   // Index to be used for first assignment to a variable (must be higher than VARIABLE_UNINITIALIZED!)
   private static final int VARIABLE_FIRST_ASSIGNMENT = 2;
 
+  @SuppressWarnings("unused")
   private final FunctionDeclaration<?> stringUfDecl;
 
   protected final Set<CVariableDeclaration> globalDeclarations = new HashSet<>();
 
-  private int derefCount;
+  @SuppressWarnings("unused")
+  private int derefCount = 0;
 
   public CtoFormulaConverter(FormulaEncodingOptions pOptions, FormulaManagerView fmgr,
       MachineModel pMachineModel, Optional<VariableClassification> pVariableClassification,
@@ -224,9 +229,6 @@ public class CtoFormulaConverter {
     this.shutdownNotifier = pShutdownNotifier;
 
     this.direction = pDirection;
-
-    this.derefCount = 0;
-
     stringUfDecl = ffmgr.declareUF(
             "__string__", typeHandler.getPointerType(), FormulaType.IntegerType);
   }
