@@ -1151,6 +1151,36 @@ public class ExpressionToFormulaVisitor
             }
           }
         }
+      } else if (BuiltinStringFunctions.matchesMinStrlen(functionName)) {
+        if (parameters.size() == 2) {
+          CExpression strExpression = parameters.get(0);
+          CExpression lenExpression = parameters.get(1);
+          if (conv.getFormulaTypeFromCType(strExpression.getExpressionType()).isStringType()) {
+            StringFormula strFormula = (StringFormula) toFormula(strExpression);
+            IntegerFormula len = conv.sfmgr.length(strFormula);
+
+            if (lenExpression instanceof CIntegerLiteralExpression) {
+              BigInteger value = ((CIntegerLiteralExpression) lenExpression).getValue();
+              IntegerFormula max = conv.fmgr.getIntegerFormulaManager().makeNumber(value);
+              BooleanFormula gte = conv.fmgr.getIntegerFormulaManager().greaterOrEquals(len, max);
+
+              FormulaType<?> retT = conv.getFormulaTypeFromCType(e.getExpressionType());
+              if (retT instanceof BitvectorType) {
+                Formula tru =
+                    conv.fmgr.getBitvectorFormulaManager()
+                        .makeBitvector(((BitvectorType) retT).getSize(), 1);
+                Formula fal =
+                    conv.fmgr.getBitvectorFormulaManager()
+                        .makeBitvector(((BitvectorType) retT).getSize(), 0);
+                return conv.bfmgr.ifThenElse(gte, tru, fal);
+              }
+              return conv.bfmgr.ifThenElse(
+                  gte,
+                  conv.fmgr.getIntegerFormulaManager().makeNumber(1),
+                  conv.fmgr.getIntegerFormulaManager().makeNumber(0));
+            }
+          }
+        }
       } else if (BuiltinStringFunctions.matchesStartsWith(functionName)) {
         if (parameters.size() == 2) {
           CExpression strExpression = parameters.get(0);

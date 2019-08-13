@@ -29,6 +29,7 @@ public class BuiltinStringFunctions {
   private static final String INREGEX = "__VERIFIER_inregex";
   private static final String STRLEN = "strlen";
   private static final String MAXSTRLEN = "__VERIFIER_maxstrlen";
+  private static final String MINSTRLEN = "__VERIFIER_minstrlen";
 
   private static final ImmutableList<String> STARTS_WITH = ImmutableList.of("istarts_with");
 
@@ -50,6 +51,10 @@ public class BuiltinStringFunctions {
 
   public static boolean matchesMaxStrlen(String pFunctionName) {
     return pFunctionName.equals(MAXSTRLEN);
+  }
+
+  public static boolean matchesMinStrlen(String pFunctionName) {
+    return pFunctionName.equals(MINSTRLEN);
   }
 
   public static boolean matchesStartsWith(String pFunctionName) {
