@@ -1153,7 +1153,6 @@ public class ExpressionToFormulaVisitor
               && conv.getFormulaTypeFromCType(strExpression2.getExpressionType()).isStringType()) {
             StringFormula strFormula1 = (StringFormula) toFormula(strExpression1);
             StringFormula strFormula2 = (StringFormula) toFormula(strExpression2);
-            BooleanFormula ret = conv.sfmgr.equal(strFormula1, strFormula2);
             FormulaType<?> retT = conv.getFormulaTypeFromCType(e.getExpressionType());
             if (retT instanceof BitvectorType) {
               return conv.bfmgr.ifThenElse(conv.sfmgr.lt(strFormula1, strFormula2), conv.fmgr.getBitvectorFormulaManager().makeBitvector(((BitvectorType) retT).getSize(), -1), conv.bfmgr.ifThenElse(conv.sfmgr.equal(strFormula1, strFormula2), conv.fmgr.getBitvectorFormulaManager().makeBitvector(((BitvectorType) retT).getSize(), 0), conv.fmgr.getBitvectorFormulaManager().makeBitvector(((BitvectorType) retT).getSize(), 1)));
