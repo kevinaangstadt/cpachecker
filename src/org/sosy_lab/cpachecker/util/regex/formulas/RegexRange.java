@@ -78,7 +78,7 @@ public class RegexRange implements RegexOperator {
   @Override
   public RegexFormula toFormula(StringFormulaManagerView pSfmgr) {
     String sStart = String.format("\\x%02X", this.hexVal1);
-    String sEnd = String.format("\\%02X", this.hexVal2);
+    String sEnd = String.format("\\x%02X", this.hexVal2);
     return pSfmgr.regexRange(pSfmgr.makeString(sStart), pSfmgr.makeString(sEnd));
   }
 }
