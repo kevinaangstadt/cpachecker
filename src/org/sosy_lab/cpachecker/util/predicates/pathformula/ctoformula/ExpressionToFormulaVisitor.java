@@ -200,7 +200,33 @@ public class ExpressionToFormulaVisitor
 
     switch (op) {
     case PLUS:
-      if (!(promT1 instanceof CPointerType) && !(promT2 instanceof CPointerType)) { // Just an addition e.g. 6 + 7
+        if (CtoFormulaConverter.isStringType(promT1)) {
+          // we are trying to increment a string
+
+
+          Formula start = f2;
+          if (f2 instanceof BitvectorFormula) {
+            start =
+                conv.fmgr.getBitvectorFormulaManager()
+                    .toIntegerFormula((BitvectorFormula) start, ((CSimpleType) promT2).isSigned());
+          }
+
+          Formula length = mgr.makeMinus(conv.sfmgr.length((StringFormula) f1), start);
+          if (length instanceof BitvectorFormula) {
+            length =
+                conv.fmgr.getBitvectorFormulaManager()
+                    .toIntegerFormula((BitvectorFormula) length, ((CSimpleType) promT2).isSigned());
+          }
+
+          ret =
+              conv.sfmgr
+                  .substring((StringFormula) f1, (IntegerFormula) start, (IntegerFormula) length);
+        } else if (!(promT1 instanceof CPointerType) && !(promT2 instanceof CPointerType)) { // Just
+                                                                                             // an
+                                                                                             // addition
+                                                                                             // e.g.
+                                                                                             // 6 +
+                                                                                             // 7
         ret = mgr.makePlus(f1, f2);
       } else if (!(promT2 instanceof CPointerType)) {
         // operand1 is a pointer => we should multiply the second summand by the size of the pointer target
