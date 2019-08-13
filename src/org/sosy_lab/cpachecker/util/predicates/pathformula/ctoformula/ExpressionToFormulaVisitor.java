@@ -1145,6 +1145,28 @@ public class ExpressionToFormulaVisitor
             return len;
           }
         }
+      } else if (BuiltinStringFunctions.matchesStrcmp(functionName)) {
+        if (parameters.size() == 2) {
+          CExpression strExpression1 = parameters.get(0);
+          CExpression strExpression2 = parameters.get(1);
+          if (conv.getFormulaTypeFromCType(strExpression1.getExpressionType()).isStringType()
+              && conv.getFormulaTypeFromCType(strExpression2.getExpressionType()).isStringType()) {
+            StringFormula strFormula1 = (StringFormula) toFormula(strExpression1);
+            StringFormula strFormula2 = (StringFormula) toFormula(strExpression2);
+            BooleanFormula ret = conv.sfmgr.equal(strFormula1, strFormula2);
+            FormulaType<?> retT = conv.getFormulaTypeFromCType(e.getExpressionType());
+            if (retT instanceof BitvectorType) {
+              return conv.bfmgr.ifThenElse(conv.sfmgr.lt(strFormula1, strFormula2), conv.fmgr.getBitvectorFormulaManager().makeBitvector(((BitvectorType) retT).getSize(), -1), conv.bfmgr.ifThenElse(conv.sfmgr.equal(strFormula1, strFormula2), conv.fmgr.getBitvectorFormulaManager().makeBitvector(((BitvectorType) retT).getSize(), 0), conv.fmgr.getBitvectorFormulaManager().makeBitvector(((BitvectorType) retT).getSize(), 1)));
+            }
+            return conv.bfmgr.ifThenElse(
+                conv.sfmgr.lt(strFormula1, strFormula2),
+                conv.fmgr.getIntegerFormulaManager().makeNumber(-1),
+                conv.bfmgr.ifThenElse(
+                    conv.sfmgr.equal(strFormula1, strFormula2),
+                    conv.fmgr.getIntegerFormulaManager().makeNumber(0),
+                    conv.fmgr.getIntegerFormulaManager().makeNumber(1)));
+          }
+        }
       } else if (BuiltinStringFunctions.matchesMaxStrlen(functionName)) {
         if (parameters.size() == 2) {
           CExpression strExpression = parameters.get(0);

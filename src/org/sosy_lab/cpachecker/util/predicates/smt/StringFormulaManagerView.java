@@ -157,6 +157,16 @@ public class StringFormulaManagerView extends BaseManagerView implements StringF
   }
 
   @Override
+  public BooleanFormula lt(StringFormula pString1, StringFormula pString2) {
+    return manager.lt(pString1, pString2);
+  }
+
+  @Override
+  public BooleanFormula lte(StringFormula pString1, StringFormula pString2) {
+    return manager.lte(pString1, pString2);
+  }
+
+  @Override
   public RegexFormula regexEmpty() {
     return manager.regexEmpty();
   }

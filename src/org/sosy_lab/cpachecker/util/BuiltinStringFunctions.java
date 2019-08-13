@@ -28,13 +28,14 @@ import com.google.common.collect.ImmutableList;
 public class BuiltinStringFunctions {
   private static final String INREGEX = "__VERIFIER_inregex";
   private static final String STRLEN = "strlen";
+  private static final String STRCMP = "strcmp";
   private static final String MAXSTRLEN = "__VERIFIER_maxstrlen";
   private static final String MINSTRLEN = "__VERIFIER_minstrlen";
 
   private static final ImmutableList<String> STARTS_WITH = ImmutableList.of("istarts_with");
 
   private static final ImmutableList<String> possibleFunctions =
-      ImmutableList.of(INREGEX, STRLEN, MAXSTRLEN);
+      ImmutableList.of(INREGEX, STRLEN, STRCMP, MAXSTRLEN, MINSTRLEN);
 
 
   public static boolean isBuiltinStringFunction(String pFunctionName) {
@@ -47,6 +48,10 @@ public class BuiltinStringFunctions {
 
   public static boolean matchesStrlen(String pFunctionName) {
     return pFunctionName.equals(STRLEN);
+  }
+
+  public static boolean matchesStrcmp(String pFunctionName) {
+    return pFunctionName.equals(STRCMP);
   }
 
   public static boolean matchesMaxStrlen(String pFunctionName) {
