@@ -25,10 +25,15 @@ import org.sosy_lab.cpachecker.util.regex.formulas.RegexEps;
 import org.sosy_lab.cpachecker.util.regex.formulas.RegexNull;
 import org.sosy_lab.cpachecker.util.regex.formulas.RegexOperator;
 import org.sosy_lab.cpachecker.util.regex.formulas.RegexPlus;
+import org.sosy_lab.cpachecker.util.regex.formulas.RegexRange;
 import org.sosy_lab.cpachecker.util.regex.formulas.RegexStar;
 import org.sosy_lab.cpachecker.util.regex.formulas.RegexUnion;
+import org.sosy_lab.cpachecker.util.regex.generated.RegexGrammarParser.Class_itemContext;
+import org.sosy_lab.cpachecker.util.regex.generated.RegexGrammarParser.Class_listContext;
+import org.sosy_lab.cpachecker.util.regex.generated.RegexGrammarParser.Hex_rangeContext;
 import org.sosy_lab.cpachecker.util.regex.generated.RegexGrammarParser.RegexContext;
 import org.sosy_lab.cpachecker.util.regex.generated.RegexGrammarParser.Regex_carContext;
+import org.sosy_lab.cpachecker.util.regex.generated.RegexGrammarParser.Regex_classContext;
 import org.sosy_lab.cpachecker.util.regex.generated.RegexGrammarParser.Regex_concatContext;
 import org.sosy_lab.cpachecker.util.regex.generated.RegexGrammarParser.Regex_epsContext;
 import org.sosy_lab.cpachecker.util.regex.generated.RegexGrammarParser.Regex_nullContext;
@@ -76,6 +81,50 @@ public class RegexOperatorTreeVisitor extends RegexGrammarParserBaseVisitor<Rege
   public RegexOperator visitRegex_car(Regex_carContext ctx) {
     throwException_WhenInvalidChildCount(ctx.getChildCount(), 1);
     return RegexCar.of(ctx.getChild(0).getText());
+  }
+
+  @Override
+  public RegexOperator visitRegex_class(Regex_classContext ctx) {
+    // regex_class -> LBRACKET class_list RBRACKET ;
+    throwException_WhenInvalidChildCount(ctx.getChildCount(), 3);
+    return visit(ctx.getChild(1));
+  }
+
+  @Override
+  public RegexOperator visitClass_list(Class_listContext ctx) {
+    // class_list -> class_item | class_item COMMA class_list ;
+    if (ctx.getChildCount() == 1) {
+      // we just have a class item, return it
+      return visit(ctx.getChild(0));
+    }
+
+    if (ctx.getChildCount() == 2) {
+      // we have a list of items in the class
+      return RegexUnion.of(visit(ctx.getChild(0)), visit(ctx.getChild(1)));
+    }
+
+    throw new RuntimeException(
+        String.format(
+            "Invalid input provided. Expected 1 or 2 child-nodes in param 'ctx', however %d were found",
+            ctx.getChildCount()));
+  }
+
+  @Override
+  public RegexOperator visitClass_item(Class_itemContext ctx) {
+    // class_item -> HEXESCAPE | hex_range ;
+    throwException_WhenInvalidChildCount(ctx.getChildCount(), 1);
+    if (ctx.getChild(0) instanceof Hex_rangeContext) {
+      return visit(ctx.getChild(0));
+    } else {
+      return RegexCar.of(ctx.getChild(0).getText());
+    }
+  }
+
+  @Override
+  public RegexOperator visitHex_range(Hex_rangeContext ctx) {
+    // hex_range -> HEXESCAPE HYPEN HEXESCAPE ;
+    throwException_WhenInvalidChildCount(ctx.getChildCount(), 3);
+    return RegexRange.of(ctx.getChild(0).getText(), ctx.getChild(2).getText());
   }
 
   @Override

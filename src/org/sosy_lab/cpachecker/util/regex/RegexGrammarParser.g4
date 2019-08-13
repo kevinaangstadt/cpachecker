@@ -34,11 +34,19 @@ options {
  
  regex : regex_type EOF ;
  
- regex_type : regex_null | regex_union | regex_car | regex_plus | regex_star | regex_concat | regex_eps ;
+ regex_type : regex_null | regex_union | regex_class | regex_car | regex_plus | regex_star | regex_concat | regex_eps ;
  
  regex_null : NULL ;
  
  regex_union : LPAREN regex_type RPAREN UNION LPAREN regex_type RPAREN ;
+ 
+ regex_class : LBRACKET class_list RBRACKET ;
+ 
+ class_list : class_item | class_item class_list ;
+ 
+ class_item : HEXESCAPE | hex_range ;
+ 
+ hex_range : HEXESCAPE HYPHEN HEXESCAPE ;
  
  regex_car : HEXESCAPE ;
  

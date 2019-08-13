@@ -24,11 +24,14 @@ import org.sosy_lab.cpachecker.util.regex.formulas.RegexConcat;
 import org.sosy_lab.cpachecker.util.regex.formulas.RegexEps;
 import org.sosy_lab.cpachecker.util.regex.formulas.RegexNull;
 import org.sosy_lab.cpachecker.util.regex.formulas.RegexPlus;
+import org.sosy_lab.cpachecker.util.regex.formulas.RegexRange;
 import org.sosy_lab.cpachecker.util.regex.formulas.RegexStar;
 import org.sosy_lab.cpachecker.util.regex.formulas.RegexUnion;
 
 public interface RegexFormulaVisitor {
   public String visit(RegexCar pCar);
+
+  public String visit(RegexRange pRange);
 
   public String visit(RegexConcat pConcat);
 

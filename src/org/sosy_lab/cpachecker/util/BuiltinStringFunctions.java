@@ -30,16 +30,14 @@ public class BuiltinStringFunctions {
   private static final String STRLEN = "strlen";
   private static final String MAXSTRLEN = "__VERIFIER_maxstrlen";
 
+  private static final ImmutableList<String> STARTS_WITH = ImmutableList.of("istarts_with");
+
   private static final ImmutableList<String> possibleFunctions =
       ImmutableList.of(INREGEX, STRLEN, MAXSTRLEN);
 
+
   public static boolean isBuiltinStringFunction(String pFunctionName) {
-    for (String fun : possibleFunctions) {
-      if (pFunctionName.equals(fun)) {
-        return true;
-      }
-    }
-    return false;
+    return possibleFunctions.contains(pFunctionName) || STARTS_WITH.contains(pFunctionName);
   }
 
   public static boolean matchesInRegex(String pFunctionName) {
@@ -52,5 +50,9 @@ public class BuiltinStringFunctions {
 
   public static boolean matchesMaxStrlen(String pFunctionName) {
     return pFunctionName.equals(MAXSTRLEN);
+  }
+
+  public static boolean matchesStartsWith(String pFunctionName) {
+    return STARTS_WITH.contains(pFunctionName);
   }
 }

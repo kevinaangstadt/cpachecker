@@ -44,6 +44,11 @@ lexer grammar RegexLexer;
  STAR               : '*' ;
  NOT                : '!' ;
  
+ // Character classes
+ LBRACKET           : '[' ;
+ RBRACKET           : ']' ;
+ HYPHEN             : '-' ;
+ 
  // Simple
  NULL               : 'NULL' ;
  EPS                : 'eps' ;

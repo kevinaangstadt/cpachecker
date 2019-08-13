@@ -1151,6 +1151,21 @@ public class ExpressionToFormulaVisitor
             }
           }
         }
+      } else if (BuiltinStringFunctions.matchesStartsWith(functionName)) {
+        if (parameters.size() == 2) {
+          CExpression strExpression = parameters.get(0);
+          CExpression preExpression = parameters.get(1);
+
+          if (conv.getFormulaTypeFromCType(strExpression.getExpressionType()).isStringType()) {
+            StringFormula strFormula = (StringFormula) toFormula(strExpression);
+
+            if(conv.getFormulaTypeFromCType(preExpression.getExpressionType()).isStringType()) {
+              StringFormula preFormula = (StringFormula) toFormula(preExpression);
+
+              return conv.sfmgr.startsWith(strFormula, preFormula);
+            }
+          }
+        }
       } else if (!CtoFormulaConverter.PURE_EXTERNAL_FUNCTIONS.contains(functionName)) {
         if (parameters.isEmpty()) {
           // function of arity 0
