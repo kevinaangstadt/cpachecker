@@ -786,6 +786,8 @@ public class FormulaManagerView {
       t = bitvectorFormulaManager.lessOrEquals((BitvectorFormula)pLhs, (BitvectorFormula)pRhs, signed);
     } else if (pLhs instanceof FloatingPointFormula && pRhs instanceof FloatingPointFormula) {
       t = floatingPointFormulaManager.lessOrEquals((FloatingPointFormula)pLhs, (FloatingPointFormula)pRhs);
+    } else if (pLhs instanceof StringFormula && pRhs instanceof StringFormula) {
+      t = stringFormulaManager.lte((StringFormula) pLhs, (StringFormula) pRhs);
     } else {
       throw new IllegalArgumentException("Not supported interface: " + pLhs + " " + pRhs);
     }
@@ -802,6 +804,8 @@ public class FormulaManagerView {
       t = bitvectorFormulaManager.lessThan((BitvectorFormula) pLhs, (BitvectorFormula) pRhs, signed);
     } else if (pLhs instanceof FloatingPointFormula && pRhs instanceof FloatingPointFormula) {
       t = floatingPointFormulaManager.lessThan((FloatingPointFormula)pLhs, (FloatingPointFormula)pRhs);
+    } else if (pLhs instanceof StringFormula && pRhs instanceof StringFormula) {
+      t = stringFormulaManager.lt((StringFormula) pLhs, (StringFormula) pRhs);
     } else {
       throw new IllegalArgumentException("Not supported interface");
     }
@@ -819,6 +823,10 @@ public class FormulaManagerView {
       t = bitvectorFormulaManager.greaterThan((BitvectorFormula) pLhs, (BitvectorFormula) pRhs, signed);
     } else if (pLhs instanceof FloatingPointFormula && pRhs instanceof FloatingPointFormula) {
       t = floatingPointFormulaManager.greaterThan((FloatingPointFormula)pLhs, (FloatingPointFormula)pRhs);
+    } else if (pLhs instanceof StringFormula && pRhs instanceof StringFormula) {
+      t =
+          booleanFormulaManager
+              .not(stringFormulaManager.lte((StringFormula) pLhs, (StringFormula) pRhs));
     } else {
       throw new IllegalArgumentException("Not supported interface");
     }
@@ -836,6 +844,10 @@ public class FormulaManagerView {
       t = bitvectorFormulaManager.greaterOrEquals((BitvectorFormula) pLhs, (BitvectorFormula) pRhs, signed);
     } else if (pLhs instanceof FloatingPointFormula && pRhs instanceof FloatingPointFormula) {
       t = floatingPointFormulaManager.greaterOrEquals((FloatingPointFormula)pLhs, (FloatingPointFormula)pRhs);
+    } else if (pLhs instanceof StringFormula && pRhs instanceof StringFormula) {
+      t =
+          booleanFormulaManager
+              .not(stringFormulaManager.lt((StringFormula) pLhs, (StringFormula) pRhs));
     } else {
       throw new IllegalArgumentException("Not supported interface");
     }
