@@ -5,14 +5,23 @@
          Keep this file synchronized with
          https://gitlab.com/sosy-lab/software/java-project-template
     -->
-    <settings defaultResolver="Sosy-Lab"/>
+    <settings defaultResolver="Sosy-Lab-Local"/>
     <property name="repo.dir" value="${basedir}/repository"/>
     <resolvers>
-        <!-- Resolver for downloading dependencies -->
-        <url name="Sosy-Lab" descriptor="required">
-            <ivy pattern="${ivy.repo.url}/[organisation]/[module]/ivy-[revision].xml" />
-            <artifact pattern="${ivy.repo.url}/[organisation]/[module]/[artifact]-[revision](-[classifier]).[ext]" />
-        </url>
+        
+        <chain name ="Sosy-Lab-Local">
+            <!-- Resolver for local java-smt dependency -->
+            <filesystem name="local-libs" descriptor="required">
+              <ivy pattern="${basedir}/lib/ivylocal/[module]/ivy-[revision].xml" />
+              <artifact pattern="${basedir}/lib/ivylocal/[module]/[artifact]-[revision](-[classifier]).[ext]" />
+            </filesystem>
+            
+            <!-- Resolver for downloading dependencies -->
+            <url name="Sosy-Lab" descriptor="required">
+                <ivy pattern="${ivy.repo.url}/[organisation]/[module]/ivy-[revision].xml" />
+                <artifact pattern="${ivy.repo.url}/[organisation]/[module]/[artifact]-[revision](-[classifier]).[ext]" />
+            </url>
+        </chain>
 
         <!-- Resolver for publishing this project -->
         <filesystem name="Sosy-Lab-Publish">

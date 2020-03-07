@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ivy-module version="2.0" xmlns:e="http://ant.apache.org/ivy/extra" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://ant.apache.org/ivy/schemas/ivy.xsd">
+    <info organisation="org.sosy_lab" module="java-smt" revision="3.0.0.str" status="release" publication="20190626113923">
+      <license name="The Apache Software License, Version 2.0" url="http://www.apache.org/licenses/LICENSE-2.0.txt"/>
+
+      <description homepage="https://github.com/sosy-lab/java-smt">
+          Java wrapper for Z3, MathSAT5, SMTInterpol, Princess SMT solvers.
+      </description>
+    </info>
+
+    <configurations>
+        <!-- All dependencies that are only needed during build. -->
+        
+
+        <!-- The minimal dependencies, without any solver. -->
+        <conf name="core" visibility="private" description="minimal configuration, no solver included"/>
+
+        <!-- The normal dependencies with only one solver included. -->
+        <conf name="runtime-mathsat" extends="core" description="only one solver included"/>
+        <conf name="runtime-optimathsat" extends="core" description="only one solver included"/>
+        <conf name="runtime-smtinterpol" extends="core" description="only one solver included"/>
+        <conf name="runtime-princess" extends="core" description="only one solver included"/>
+        <conf name="runtime-z3" extends="core" description="only one solver included"/>
+
+        <!-- The normal dependencies with all solvers included. -->
+        <conf name="runtime" extends="runtime-mathsat,runtime-optimathsat,runtime-smtinterpol,runtime-princess,runtime-z3" description="all solvers included"/>
+
+        <!-- Dependencies needed for building or running tests. -->
+        
+
+        <!-- Dependencies needed for running source-code auto-formatter. -->
+        
+
+        <!-- Dependencies needed for running CheckStyle. -->
+        
+
+        <!-- Dependencies needed for running SpotBugs. -->
+        
+
+        <!-- Additional files like JavaDocs or source code that will help developers.
+             These are not downloaded by default, but only when "ant install-contrib" is called. -->
+        <conf name="contrib" visibility="private"/>
+
+        <!-- Configuration for publishing sources -->
+        <conf name="sources" description="sources of JavaSMT"/>
+
+        <conf name="sources-all" extends="sources,contrib" description="sources of JavaSMT and its dependencies"/>
+    </configurations>
+
+    <publications defaultconf="core">
+        <artifact/>
+
+        <artifact conf="sources" e:classifier="sources" type="source" ext="jar"/>
+    </publications>
+
+    <dependencies>
+        <!-- SoSy-Lab Common Library -->
+        <dependency org="org.sosy_lab" name="common" rev="0.3000-357-gc47b29f" conf="core->runtime; contrib->sources"/>
+
+        <!-- Google Core Libraries for Java
+             Contains a lot of helpful data structures. -->
+        <dependency org="com.google.guava" name="guava" rev="25.1-jre" revConstraint="28.0-jre" conf="core->default; contrib->sources"/>
+
+        <!--  Guava-testlib contains many useful testing utilities -->
+        <dependency org="com.google.guava" name="guava-testlib" rev="28.0-jre" conf=" contrib->sources"/>
+
+        <!-- Dependency on Ivy itself so that we can ugprade it easily.
+             Change version number in build/build-ivy.xml for upgrading. -->
+        
+
+        <!-- Google Auto-Value
+             Library for auto-generating value types. -->
+        
+        <dependency org="com.google.auto.value" name="auto-value-annotations" rev="1.6.3" revConstraint="1.6.2" conf=" contrib->sources"/>
+
+        <!-- Annotations we use for @Nullable etc. -->
+        <dependency org="org.checkerframework" name="checker-qual" rev="2.8.1" revConstraint="2.5.2" conf="core->default; contrib->sources"/>
+
+        <!-- JUnit
+             Testing framework. -->
+        
+
+        <!-- JaCoCo
+             Library for code coverage -->
+        
+
+        <!-- The JUnit task for Ant so that we can run the tests.
+             The property used here is defined in build.xml according to the current Ant version. -->
+        
+        
+
+        <!-- Truth
+             Library for writing literal assertions. -->
+        <dependency org="com.google.truth" name="truth" rev="0.46" conf=" contrib->sources"/>
+        <dependency org="com.google.truth.extensions" name="truth-java8-extension" rev="0.46" conf=" contrib->sources"/>
+
+        <!-- Google error-prone
+             Compiler adaptor with some useful checks for common errors. -->
+        
+        <dependency org="com.google.errorprone" name="error_prone_annotations" rev="2.3.2" conf=" contrib->sources"/>
+
+        <!-- Eclipse JDT Compiler
+             For additional compiler warnings. -->
+        
+
+        <!-- google-java-format
+             A source-code formatter for Java -->
+        
+
+        <!-- Checkstyle -->
+        
+
+        <!-- SpotBugs -->
+        
+        <!-- JAR with annotations needs to be present at runtime because we use Nullable.class -->
+        <dependency org="com.github.spotbugs" name="spotbugs-annotations" rev="3.1.12" conf="runtime->default; contrib->sources"/>
+        <dependency org="com.google.code.findbugs" name="jsr305" rev="3.0.2" conf="runtime->default; contrib->sources"/>
+
+        <!-- SmtInterpol -->
+        <dependency org="de.uni-freiburg.informatik.ultimate" name="smtinterpol" rev="2.5-66-g453d36e" conf="runtime-smtinterpol->master; contrib->sources"/>
+
+        <!-- Princess -->
+        <dependency org="uuverifiers" name="princess_2.12" rev="2018-12-06-assertionless" conf="runtime-princess->default; contrib->sources">
+          <!-- Exclude dependency on java-cup and replace it with java-cup-runtime, which is enough.
+               We use the JAR that is published by us instead of the one from net.sf.squirrel-sql.thirdparty-non-maven
+               because the latter does not provide a separate JAR for java-cup-runtime. -->
+          <exclude org="net.sf.squirrel-sql.thirdparty-non-maven" name="java-cup"/>
+        </dependency>
+        <dependency org="edu.tum.cs" name="java-cup" rev="11a" conf="runtime->runtime"/>
+
+        <!-- Solver Binaries -->
+        <dependency org="org.sosy_lab" name="javasmt-solver-mathsat" rev="5.5.4-sosy0" conf="runtime-mathsat->solver-mathsat"/>
+        <dependency org="org.sosy_lab" name="javasmt-solver-z3" rev="4.7.1" conf="runtime-z3->solver-z3"/>
+        <dependency org="org.sosy_lab" name="javasmt-solver-optimathsat" rev="1.4.0.10" conf="runtime-optimathsat->solver-optimathsat"/>
+
+        <!-- Guava has a dependency on error_prone_annotations without a revision number, need an override. -->
+        <override org="com.google.errorprone" module="error_prone_annotations" rev="2.3.2"/>
+    </dependencies>
+</ivy-module>
