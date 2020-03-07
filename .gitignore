@@ -53,6 +53,9 @@ a.out
 # /src/org/sosy_lab/cpachecker/util/ltl/generated/
 /src/org/sosy_lab/cpachecker/util/ltl/generated/
 
+# /src/org/sosy_lab/cpachecker/util/regex/generated/
+/src/org/sosy_lab/cpachecker/util/regex/generated/
+
 # /test/programs/
 /test/programs/benchmarks
 /test/programs/ldv-benchmarks
